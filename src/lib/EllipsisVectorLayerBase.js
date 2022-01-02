@@ -19,16 +19,6 @@ class EllipsisVectorLayerBase {
             return;
         }
 
-        if (!options.getMapBounds) {
-            console.error('no getMapBounds method specified');
-            return;
-        }
-
-        if (!options.updateView) {
-            console.error('no view updater specified');
-            return;
-        }
-
         Object.keys(EllipsisVectorLayerBase.defaultOptions).forEach(x => {
             if (options[x] == undefined)
                 options[x] = EllipsisVectorLayerBase.defaultOptions[x];
