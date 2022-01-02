@@ -7,8 +7,8 @@
     "Ellipsis",
     "Ellipsis Drive"
   ],
-  "main": "build/ellipsisjs-util.js",
-  "module": "build/ellipsisjs-util.js",
+  "main": "build/ellipsis-js-util.js",
+  "module": "build/ellipsis-js-util.js",
   "author": "Jelle Keulemans",
   "files": [
     "build",

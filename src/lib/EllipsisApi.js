@@ -78,7 +78,7 @@ async function ellipsisApiManagerFetch(method, url, body, user) {
         });
 }
 
-const EllipsisApi = {
+export default {
 
     setApiUrl: (newUrl) => apiUrl = newUrl,
     /**
@@ -138,5 +138,3 @@ const EllipsisApi = {
     },
 
 }
-
-export default EllipsisApi;

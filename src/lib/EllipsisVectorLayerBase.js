@@ -36,9 +36,7 @@ class EllipsisVectorLayerBase {
         Object.keys(EllipsisVectorLayerBase.optionModifiers).forEach(x => options[x] = EllipsisVectorLayerBase.optionModifiers[x](options[x]));
         Object.keys(options).forEach(x => this[x] = options[x]);
 
-        this.id = `${blockId}_${layerId}`;
-        this.blockId = blockId;
-        this.layerId = layerId;
+        this.id = `${this.blockId}_${this.layerId}`;
         this.tiles = [];
         this.cache = [];
         this.zoom = 1;
@@ -212,8 +210,8 @@ class EllipsisVectorLayerBase {
             tileData.size = tileData.size + result[j].size;
             tileData.amount = tileData.amount + result[j].result.features.length;
             tileData.nextPageStart = result[j].nextPageStart;
-            if (this.featureFormatter) {
-                result[j].result.elements.forEach(x => this.featureFormatter(x));
+            if (this.featureFormatter && result[j].result.features) {
+                result[j].result.features.forEach(x => this.featureFormatter(x));
             }
             tileData.elements = tileData.elements.concat(result[j].result.features);
 

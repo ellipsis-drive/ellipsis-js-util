@@ -1,4 +1,4 @@
-import { EllipsisApi } from "./EllipsisApi";
+import EllipsisApi from "./EllipsisApi";
 
 const getSlippyMapUrl = (options) => {
 
