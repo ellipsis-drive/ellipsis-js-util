@@ -1,0 +1,30 @@
+{
+  "name": "ellipsis-js-util",
+  "version": "1.0.0",
+  "description": "Tools for using the ellipsis drive js api",
+  "private": false,
+  "keywords": [
+    "Ellipsis",
+    "Ellipsis Drive"
+  ],
+  "main": "build/ellipsisjs-util.js",
+  "module": "build/ellipsisjs-util.js",
+  "author": "Jelle Keulemans",
+  "files": [
+    "build",
+    "README.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ellipsis-drive/ellipsis-js-util.git"
+  },
+  "scripts": {
+    "build": "webpack --config webpack.config.build.js",
+    "start": "webpack --config webpack.config.js --watch & live-server src/test/dist"
+  },
+  "devDependencies": {
+    "live-server": "^1.2.1",
+    "webpack": "^5.65.0",
+    "webpack-cli": "^4.9.1"
+  }
+}
