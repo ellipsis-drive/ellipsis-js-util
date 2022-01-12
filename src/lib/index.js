@@ -1,6 +1,5 @@
-import EllipsisVectorLayerBase from "./EllipsisVectorLayerBase";
 import EllipsisApi from "./EllipsisApi";
+import * as VectorLayerUtil from "./VectorLayerUtil";
 import * as RasterLayerUtil from "./RasterLayerUtil";
-import * as GeoJsonUtil from "./GeoJsonUtil";
 
-export { EllipsisApi, EllipsisVectorLayerBase, RasterLayerUtil, GeoJsonUtil };
+export { EllipsisApi, RasterLayerUtil, VectorLayerUtil };

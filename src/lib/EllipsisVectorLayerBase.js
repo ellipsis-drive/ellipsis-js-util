@@ -1,4 +1,5 @@
 import EllipsisApi from "./EllipsisApi";
+import { getFeatureStyling, extractStyling, styleKeys } from "./VectorLayerUtil";
 
 class EllipsisVectorLayerBase {
 
@@ -8,6 +9,8 @@ class EllipsisVectorLayerBase {
     }
 
     constructor(options = {}) {
+
+        console.log(this);
 
         if (!options.blockId) {
             console.error('no block id specified');
@@ -31,6 +34,11 @@ class EllipsisVectorLayerBase {
         this.cache = [];
         this.zoom = 1;
     }
+
+    onEachFeature = undefined;
+    styleKeys = styleKeys;
+    getMapBounds = () => console.error('get map bounds not implemented');
+    updateView = () => console.error('update view not implemented');
 
     getFeatures = () => {
         let features;
@@ -119,8 +127,9 @@ class EllipsisVectorLayerBase {
                 this.nextPageStart = 4; //EOT (end of transmission)
             if (res.result && res.result.features) {
                 res.result.features.forEach(x => {
-                    if (this.featureFormatter)
-                        this.featureFormatter(x);
+                    this.compileStyle(x);
+                    if (this.onEachFeature)
+                        this.onEachFeature(x);
                     this.cache.push(x);
                 });
             }
@@ -200,8 +209,12 @@ class EllipsisVectorLayerBase {
             tileData.size = tileData.size + result[j].size;
             tileData.amount = tileData.amount + result[j].result.features.length;
             tileData.nextPageStart = result[j].nextPageStart;
-            if (this.featureFormatter && result[j].result.features) {
-                result[j].result.features.forEach(x => this.featureFormatter(x));
+            if (this.onEachFeature && result[j].result.features) {
+                result[j].result.features.forEach(x => {
+                    this.compileStyle(x);
+                    if (this.onEachFeature)
+                        this.onEachFeature(x);
+                });
             }
             tileData.elements = tileData.elements.concat(result[j].result.features);
 
@@ -210,6 +223,14 @@ class EllipsisVectorLayerBase {
     };
 
     getTileId = (tile) => `${tile.zoom}_${tile.tileX}_${tile.tileY}`;
+
+    compileStyle = (feature) => {
+        let compiledStyle = getFeatureStyling(feature, this);
+        if (this.styleKeys)
+            compiledStyle = extractStyling(compiledStyle, this.styleKeys);
+        if (!feature.properties) feature.properties = {};
+        feature.properties.compiledStyle = compiledStyle;
+    };
 
     boundsToTiles = (bounds, zoom) => {
         const xMin = Math.max(bounds.xMin, -180);
@@ -260,8 +281,6 @@ EllipsisVectorLayerBase.defaultOptions = {
     maxMbPerTile: 16,
     maxTilesInCache: 500,
     maxFeaturesPerTile: 500,
-    radius: 6,
-    lineWidth: 2, //TODO also change in readme
     useMarkers: false,
     loadAll: false,
     refreshTilesStep: 1
