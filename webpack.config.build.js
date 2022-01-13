@@ -11,5 +11,8 @@ module.exports = {
     },
     filename: 'ellipsis-js-util.js',
   },
-  mode: 'production'
+  mode: 'production',
+  externals: {
+    'unique-names-generator': 'unique-names-generator'
+  }
 };
