@@ -13,11 +13,21 @@ const defaultStyle = {
 //Map style keys to possible aliases
 const styleKeys = {
     radius: [],
-    width: ['lineWidth'],
+    width: ['lineWidth', 'weight'],
     borderColor: [],
     borderOpacity: [],
     fillColor: ['color'],
     fillOpacity: ['opacity']
+}
+
+const getStyleKeys = (filters = { blacklist: [] }) => {
+    return Object.fromEntries(Object.entries(styleKeys).filter(([key]) => {
+        if (filters.blacklist.includes(key))
+            return false;
+        if (filters.whitelist && !filters.whitelist.includes(key))
+            return false;
+        return true;
+    }));
 }
 
 const parseHex = (color, toRGB) => {
@@ -26,12 +36,12 @@ const parseHex = (color, toRGB) => {
     const splitHexComponents = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})?$/i.exec(color);
 
     //Retreive all color components from hex
-    let [r, g, b, opacity] = splitHexComponents.slice(1).map(x => parseInt(x, 16));
-    opacity = isNaN(opacity) ? opacity = undefined : opacity /= 255;
+    let [r, g, b, alpha] = splitHexComponents.slice(1).map(x => parseInt(x, 16));
+    alpha = isNaN(alpha) ? alpha = undefined : alpha /= 255;
 
 
-    if (toRGB) return { r, g, b, opacity };
-    return { color: `#${splitHexComponents.slice(1, 4).join('')}`, opacity };
+    if (toRGB) return { r, g, b, opacity: 1 - alpha };
+    return { color: `#${splitHexComponents.slice(1, 4).join('')}`, opacity: 1 - alpha };
 }
 
 //Finds styling info based on styleKeysInfo. It'll return all style info with the style
@@ -48,7 +58,6 @@ const extractStyling = (obj = {}, styleKeysInfo = styleKeys) => {
     });
     return styling;
 }
-
 
 /**
  * Parses hex color values from feature to create an object that has all styling
@@ -106,9 +115,8 @@ const getFeatureStyling = (feature, ...stylingSources) => {
     return mergeObjects(defaultStyle, combinedStyles);
 }
 
-
 export {
     EllipsisVectorLayerBase,
-    defaultStyle, styleKeys,
-    getFeatureStyling, parseHex, extractStyling
+    defaultStyle,
+    getFeatureStyling, parseHex, extractStyling, getStyleKeys
 };

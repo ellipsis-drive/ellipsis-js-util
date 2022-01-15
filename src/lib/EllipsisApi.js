@@ -1,7 +1,7 @@
 let apiUrl = 'https://api.ellipsis-drive.com/v1';
 
-function CustomError(status, message) {
-    var error = Error.call(this, message);
+function ApiError(status, message) {
+    const error = Error.call(this, message);
 
     this.name = 'API Error';
     this.message = error.message;
@@ -70,13 +70,14 @@ async function ellipsisApiManagerFetch(method, url, body, user) {
                 return result;
             } else {
                 if (!isText) {
-                    throw new CustomError(gottenResponse.status, result.message);
+                    throw new ApiError(gottenResponse.status, result.message);
                 } else {
-                    throw new CustomError(gottenResponse.status, result);
+                    throw new ApiError(gottenResponse.status, result);
                 }
             }
         });
 }
+
 
 export default {
 
