@@ -3,6 +3,24 @@ import { getFeatureStyling, extractStyling, getStyleKeys } from "./VectorLayerUt
 
 class EllipsisVectorLayerBase {
 
+    static defaultOptions = {
+        centerPoints: false,
+        pageSize: 50,
+        maxMbPerTile: 16,
+        maxTilesInCache: 500,
+        maxFeaturesPerTile: 500,
+        useMarkers: false,
+        loadAll: false,
+        fetchInterval: 0
+    };
+
+    static optionModifiers = {
+        pageSize: (pageSize) => Math.min(3000, pageSize),
+        maxMbPerTile: (maxMbPerTile) => maxMbPerTile * 1000000,
+        debug: (debug) => debug ? (msg) => console.log(msg) : () => { }
+    };
+
+
     loadingState = {
         loadInterrupters: [],
         loadingTimeout: undefined,
@@ -194,8 +212,8 @@ class EllipsisVectorLayerBase {
             if (res.result && res.result.features) {
                 res.result.features.forEach(x => {
                     this.compileStyle(x);
-                    if (this.onEachFeature)
-                        this.onEachFeature(x);
+                    if (this.loadOptions.onEachFeature)
+                        this.loadOptions.onEachFeature(x);
                     this.loadingState.cache.push(x);
                 });
             }
@@ -278,8 +296,8 @@ class EllipsisVectorLayerBase {
             if (result[j].result.features) {
                 result[j].result.features.forEach(x => {
                     this.compileStyle(x);
-                    if (this.onEachFeature)
-                        this.onEachFeature(x);
+                    if (this.loadOptions.onEachFeature)
+                        this.loadOptions.onEachFeature(x);
                 });
             }
             tileData.elements = tileData.elements.concat(result[j].result.features);
@@ -376,23 +394,5 @@ class EllipsisVectorLayerBase {
         return tiles;
     };
 }
-
-//React-style defaults to allow easy porting.
-EllipsisVectorLayerBase.defaultOptions = {
-    centerPoints: false,
-    pageSize: 25,
-    maxMbPerTile: 16,
-    maxTilesInCache: 500,
-    maxFeaturesPerTile: 500,
-    useMarkers: false,
-    loadAll: false,
-    fetchInterval: 100
-};
-
-EllipsisVectorLayerBase.optionModifiers = {
-    pageSize: (pageSize) => Math.min(3000, pageSize),
-    maxMbPerTile: (maxMbPerTile) => maxMbPerTile * 1000000,
-    debug: (debug) => debug ? (msg) => console.log(msg) : () => { }
-};
 
 export default EllipsisVectorLayerBase;

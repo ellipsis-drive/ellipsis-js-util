@@ -1,6 +1,6 @@
 import EllipsisApi from "./EllipsisApi";
 
-const getSlippyMapUrl = (options) => {
+const getSlippyMapUrl = (options = {}) => {
 
     if (options.visualization) {
         let url = `${EllipsisApi.getApiUrl()}/settings/mapLayers/preview/${options.blockId}/${options.captureId}/${options.visualization.method}/{z}/{x}/{y}?parameters=${JSON.stringify(options.visualization.parameters)}`;
@@ -12,4 +12,7 @@ const getSlippyMapUrl = (options) => {
 
     return url;
 }
-export { getSlippyMapUrl };
+
+const getLayerId = (options = {}) => `${options.blockId}_${options.captureId}_${options.visualizationId}_${options.visualization ? JSON.stringify(options.visualization) : 'novis'}`;
+
+export { getSlippyMapUrl, getLayerId };
