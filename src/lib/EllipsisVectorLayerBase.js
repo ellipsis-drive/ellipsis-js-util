@@ -6,6 +6,7 @@ class EllipsisVectorLayerBase {
     static defaultOptions = {
         centerPoints: false,
         pageSize: 50,
+        chunkSize: 10,
         maxMbPerTile: 16,
         maxTilesInCache: 500,
         maxFeaturesPerTile: 500,
@@ -261,7 +262,7 @@ class EllipsisVectorLayerBase {
 
         //Get new geometry for the tiles
         let result = [];
-        const chunkSize = 10;
+        const chunkSize = this.options.chunkSize;
         for (let k = 0; k < tiles.length; k += chunkSize) {
             body.tiles = tiles.slice(k, k + chunkSize);
             try {
