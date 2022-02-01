@@ -40,8 +40,8 @@ const parseHex = (color, toRGB) => {
     alpha = isNaN(alpha) ? alpha = undefined : alpha /= 255;
 
 
-    if (toRGB) return { r, g, b, opacity: 1 - alpha };
-    return { color: `#${splitHexComponents.slice(1, 4).join('')}`, opacity: 1 - alpha };
+    if (toRGB) return { r, g, b, opacity: alpha };
+    return { color: `#${splitHexComponents.slice(1, 4).join('')}`, opacity: alpha };
 }
 
 //Finds styling info based on styleKeysInfo. It'll return all style info with the style
