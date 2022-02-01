@@ -6,8 +6,8 @@ module.exports = {
     publicPath: '',
     path: path.resolve(__dirname, 'build'),
     library: {
-      name: 'ellipsis',
-      type: 'umd'
+      type: 'umd',
+      name: 'EllipsisUtil'
     },
     filename: 'ellipsis-js-util.js',
   },
