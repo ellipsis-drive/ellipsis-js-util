@@ -75,6 +75,10 @@ class EllipsisVectorLayerBase {
         this.id = `${this.options.pathId}_${this.options.layerId}`;
     }
 
+    getLayerInfo = () => {
+        return this.info.layerInfo;
+    }
+
     getFeatures = () => {
         let features;
         if (this.options.loadAll) {
@@ -309,8 +313,8 @@ class EllipsisVectorLayerBase {
     fetchLayerInfo = async () => {
         try {
             const info = await EllipsisApi.getPath(this.options.pathId, { token: this.options.token });
-            if (!info.geometryLayers) throw new Error('no geometrylayers present in info');
-            const layerInfo = info.geometryLayers.find(x => x.id === this.options.layerId);
+            if (!info?.vector?.layers) throw new Error('no layers present in info');
+            const layerInfo = info.vector.layers.find(x => x.id === this.options.layerId);
 
             if (!layerInfo) throw new Error('could not find layer in info');
 

@@ -13,13 +13,16 @@ function ApiError(status, message) {
 async function ellipsisApiManagerFetch(method, route, body, user, _apiUrl) {
     let headers = {};
 
-
     headers['Content-Type'] = 'application/json';
     if (user)
         headers['Authorization'] = `Bearer ${user.token}`;
 
     const useUrlParams = method === "HEAD" || method === "GET" || method === "DELETE";
     const urlParamsJson = useUrlParams ? { mapId: user?.mapId, ...body } : { mapId: user?.mapId }
+    Object.entries(urlParamsJson).forEach(([key, val]) => {
+        if (typeof val === 'object') //arrays are also objects in js
+            urlParamsJson[key] = JSON.stringify(val)
+    });
     const urlAddition = new URLSearchParams(urlParamsJson).toString();
 
     const url = `${_apiUrl ?? apiUrl}${route}${urlAddition}`;
@@ -134,7 +137,7 @@ export default {
      * @returns metadata of the given map/shape/folder
      */
     getInfo: (pathId, user) => {
-        return ellipsisApiManagerFetch('GET', '/info', { pathId }, user, deprecatedApiUrl);
+        return ellipsisApiManagerFetch('POST', '/info', { pathId }, user, deprecatedApiUrl);
     },
 
 
@@ -150,7 +153,7 @@ export default {
         if (includeDeleted) body = { mapId: blockId, includeDeleted };
         else body = { mapId: blockId };
 
-        return ellipsisApiManagerFetch('GET', '/metadata', body, user, deprecatedApiUrl);
+        return ellipsisApiManagerFetch('POST', '/metadata', body, user, deprecatedApiUrl);
     },
 
 }

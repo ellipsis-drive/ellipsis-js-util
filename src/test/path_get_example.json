@@ -1,0 +1,231 @@
+{
+  "id": "1a24a1ee-7f39-4d21-b149-88df5a3b633a",
+  "name": "borders",
+  "user": {
+    "id": "9113af2b-943f-4689-b5f4-e575167d5a38",
+    "username": "admin",
+    "disabled": false,
+    "plan": { "type": "pro" }
+  },
+  "type": "vector",
+  "driveLocation": { "root": null, "path": null },
+  "favorite": false,
+  "yourAccess": {
+    "accessLevel": 550,
+    "processingUnits": 80000000000,
+    "geoFence": {}
+  },
+  "publicAccess": {
+    "accessLevel": 550,
+    "processingUnits": 80000000000,
+    "hidden": false,
+    "canHide": false,
+    "geoFence": {}
+  },
+  "inheritedPublicAccess": {
+    "accessLevel": 100,
+    "processingUnits": 80000000000
+  },
+  "trashed": false,
+  "plans": [],
+  "metadata": { "description": "", "properties": {}, "attribution": null },
+  "hashtags": [],
+  "vector": {
+    "layers": [
+      {
+        "id": "45c47c8a-035e-429a-9ace-2dff1956e8d9",
+        "name": "example_layer",
+        "description": "",
+        "trashed": false,
+        "extent": {
+          "xMin": -177.157097412109,
+          "xMax": 177.650322509766,
+          "yMin": -75.2519765625,
+          "yMax": 75.7850118408203
+        },
+        "uploads": { "completed": 1, "errored": 0, "pending": 0 },
+        "zoom": 0,
+        "isBig": false,
+        "availability": { "blocked": false },
+        "saveSettings": {
+          "activeSeriesHistory": true,
+          "activeActionsBounds": false
+        },
+        "properties": [
+          {
+            "id": "9cd46f6c-e33c-4875-9f8d-2fb45b1a5930",
+            "name": "AREA",
+            "type": "integer",
+            "required": false,
+            "deleted": false,
+            "private": false,
+            "filtering": "value"
+          },
+          {
+            "id": "b9013e46-4e79-4a8a-ac79-e1a71a9054fa",
+            "name": "POP2005",
+            "type": "integer",
+            "required": false,
+            "deleted": false,
+            "private": false,
+            "filtering": "value"
+          },
+          {
+            "id": "548a0111-dcac-435e-bc85-909912fd62c8",
+            "name": "LAT",
+            "type": "float",
+            "required": false,
+            "deleted": false,
+            "private": false
+          },
+          {
+            "id": "fd0888b8-27f5-476c-896e-359da527cbdf",
+            "name": "LON",
+            "type": "float",
+            "required": false,
+            "deleted": false,
+            "private": false
+          },
+          {
+            "id": "3e31f38e-ce02-49ba-9749-18715dcab9cc",
+            "name": "SUBREGION",
+            "type": "integer",
+            "required": false,
+            "deleted": false,
+            "private": false
+          },
+          {
+            "id": "b3b0df44-31e1-4620-b079-8edbd5dfa6b1",
+            "name": "REGION",
+            "type": "integer",
+            "required": false,
+            "deleted": false,
+            "private": false
+          },
+          {
+            "id": "316f58fd-fe01-4468-9a38-c35cf195ec1a",
+            "name": "NAME",
+            "type": "string",
+            "required": false,
+            "deleted": false,
+            "private": false
+          },
+          {
+            "id": "52910127-94b0-4bbf-a09f-2391f5e13890",
+            "name": "UN",
+            "type": "integer",
+            "required": false,
+            "deleted": false,
+            "private": false
+          },
+          {
+            "id": "9f833920-00bf-4ee6-9745-5d732c4337cb",
+            "name": "ISO3",
+            "type": "string",
+            "required": false,
+            "deleted": false,
+            "private": false
+          },
+          {
+            "id": "f81fad4c-f163-4f7d-9fcf-4441b32af4dd",
+            "name": "ISO2",
+            "type": "string",
+            "required": false,
+            "deleted": false,
+            "private": false
+          },
+          {
+            "id": "d9124f8a-5cbd-4cb1-8d4c-0ce7c246b7c2",
+            "name": "FIPS",
+            "type": "string",
+            "required": false,
+            "deleted": false,
+            "private": false
+          }
+        ],
+        "styles": [
+          {
+            "id": "77198ed9-2547-44f9-8900-4a2e3b4a9320",
+            "name": "firstStyle",
+            "default": false,
+            "method": "rules",
+            "parameters": {
+              "alpha": 0.47058823529411764,
+              "rules": [
+                {
+                  "color": "#3ddf00",
+                  "value": 10000,
+                  "operator": "<",
+                  "property": "POP2005"
+                },
+                {
+                  "color": "#fcdc00",
+                  "value": 20000,
+                  "operator": "<",
+                  "property": "POP2005"
+                },
+                {
+                  "color": "#fe9200",
+                  "value": 40000,
+                  "operator": "<",
+                  "property": "POP2005"
+                }
+              ],
+              "width": 2,
+              "radius": {
+                "method": "onProperty",
+                "parameters": {
+                  "bias": 5,
+                  "weight": 3.81e-8,
+                  "property": "POP2005",
+                  "logarithmic": false,
+                  "defaultValue": 6
+                }
+              },
+              "defaultColor": "#c75b1c"
+            }
+          },
+          {
+            "id": "a30d5d0e-26a3-43a7-9d23-638cef7600c4",
+            "name": "secondStyle",
+            "default": true,
+            "method": "random",
+            "parameters": {
+              "alpha": 0.47058823529411764,
+              "width": 2,
+              "radius": {
+                "method": "onProperty",
+                "parameters": {
+                  "bias": 5,
+                  "weight": 3.81e-8,
+                  "property": "POP2005",
+                  "logarithmic": false,
+                  "defaultValue": 6
+                }
+              },
+              "property": "AREA"
+            }
+          }
+        ],
+        "totalSize": 0.008804318800000002,
+        "size": {
+          "feature": {
+            "base": 0.00663757,
+            "filter": 0.00164795,
+            "history": 0.000152588,
+            "changeLog": 0.0000686646
+          },
+          "message": {
+            "base": 0.00012207,
+            "area": 0,
+            "changeLog": 0.0000686646
+          },
+          "series": { "base": 0.0000686646, "changeLog": 0.000038147 },
+          "unprocessedFiles": 0
+        }
+      }
+    ]
+  },
+  "favoriteLocation": null,
+  "storageSize": 0.009780881300000002
+}
