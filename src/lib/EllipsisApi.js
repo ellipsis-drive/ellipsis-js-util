@@ -10,6 +10,18 @@ function ApiError(status, message) {
     this.status = status;
 }
 
+function toUrlParams(jsonParams, noPrefix = false) {
+    Object.entries(jsonParams).forEach(([key, val]) => {
+        if (typeof val === 'object') //arrays are also objects in js
+            jsonParams[key] = JSON.stringify(val)
+        if (val == undefined)
+            delete jsonParams[key];
+    });
+    const params = new URLSearchParams(jsonParams).toString();
+    if (noPrefix) return params;
+    return (params === "" ? "" : ("?" + params));
+}
+
 async function ellipsisApiManagerFetch(method, route, body, user, _apiUrl) {
     let headers = {};
 
@@ -19,15 +31,9 @@ async function ellipsisApiManagerFetch(method, route, body, user, _apiUrl) {
 
     const useUrlParams = method === "HEAD" || method === "GET" || method === "DELETE";
     const urlParamsJson = useUrlParams ? { mapId: user?.mapId, ...body } : { mapId: user?.mapId }
-    Object.entries(urlParamsJson).forEach(([key, val]) => {
-        if (typeof val === 'object') //arrays are also objects in js
-            urlParamsJson[key] = JSON.stringify(val)
-        if (val == undefined)
-            delete urlParamsJson[key];
-    });
-    const urlAddition = new URLSearchParams(urlParamsJson).toString();
+    const urlAddition = toUrlParams(urlParamsJson);
 
-    const url = `${_apiUrl ?? apiUrl}${route}${urlAddition === '' ? '' : '?'}${urlAddition}`;
+    const url = `${_apiUrl ?? apiUrl}${route}${urlAddition}`;
     let gottenResponse = null;
     let isText = false;
     let isJson = false;
@@ -83,6 +89,7 @@ async function ellipsisApiManagerFetch(method, route, body, user, _apiUrl) {
         });
 }
 
+export { toUrlParams }
 
 export default {
 
