@@ -22,10 +22,12 @@ async function ellipsisApiManagerFetch(method, route, body, user, _apiUrl) {
     Object.entries(urlParamsJson).forEach(([key, val]) => {
         if (typeof val === 'object') //arrays are also objects in js
             urlParamsJson[key] = JSON.stringify(val)
+        if (val == undefined)
+            delete urlParamsJson[key];
     });
     const urlAddition = new URLSearchParams(urlParamsJson).toString();
 
-    const url = `${_apiUrl ?? apiUrl}${route}${urlAddition}`;
+    const url = `${_apiUrl ?? apiUrl}${route}${urlAddition === '' ? '' : '?'}${urlAddition}`;
     let gottenResponse = null;
     let isText = false;
     let isJson = false;
@@ -35,7 +37,7 @@ async function ellipsisApiManagerFetch(method, route, body, user, _apiUrl) {
         headers: headers,
     };
 
-    if (body) {
+    if (body && !useUrlParams) {
         options.body = JSON.stringify(body);
     }
 
@@ -137,7 +139,7 @@ export default {
      * @returns metadata of the given map/shape/folder
      */
     getInfo: (pathId, user) => {
-        return ellipsisApiManagerFetch('POST', '/info', { pathId }, user, deprecatedApiUrl);
+        return getPath(pathId, user)
     },
 
 
