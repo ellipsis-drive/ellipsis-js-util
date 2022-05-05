@@ -52,8 +52,10 @@ class EllipsisVectorLayerBase {
 
     constructor(options = {}) {
 
-        if (!options.blockId) {
-            console.error('no block id specified');
+        if (!options.pathId)
+            options.pathId = options.blockId;
+        if (!options.pathId) {
+            console.error('no path id specified');
             return;
         }
 
@@ -70,7 +72,11 @@ class EllipsisVectorLayerBase {
         this.options = {};
         Object.keys(options).forEach(x => this.options[x] = options[x]);
 
-        this.id = `${this.options.blockId}_${this.options.layerId}`;
+        this.id = `${this.options.pathId}_${this.options.layerId}`;
+    }
+
+    getLayerInfo = () => {
+        return this.info.layerInfo;
     }
 
     getFeatures = () => {
@@ -196,17 +202,15 @@ class EllipsisVectorLayerBase {
 
         const body = {
             pageStart: this.loadingState.nextPageStart,
-            mapId: this.options.blockId,
             returnType: this.options.centerPoints ? "center" : "geometry",
-            layerId: this.options.layerId,
-            zip: true,
+            zipTheResponse: true,
             pageSize: Math.min(3000, this.options.pageSize),
             styleId: this.options.styleId,
             style: this.options.style
         };
 
         try {
-            const res = await EllipsisApi.post("/geometry/get", body, { token: this.options.token });
+            const res = await EllipsisApi.get(`/path/${this.options.pathId}/vector/layer/${this.options.layerId}/listFeatures`, body, { token: this.options.token });
             this.loadingState.nextPageStart = res.nextPageStart;
             if (!res.nextPageStart)
                 this.loadingState.nextPageStart = 4; //EOT (end of transmission)
@@ -249,10 +253,8 @@ class EllipsisVectorLayerBase {
         if (tiles.length === 0) return false;
 
         const body = {
-            mapId: this.options.blockId,
             returnType: this.options.centerPoints ? "center" : "geometry",
-            layerId: this.options.layerId,
-            zip: true,
+            zipTheResponse: true,
             pageSize: this.options.pageSize,
             styleId: this.options.styleId,
             style: this.options.style,
@@ -266,7 +268,7 @@ class EllipsisVectorLayerBase {
         for (let k = 0; k < tiles.length; k += chunkSize) {
             body.tiles = tiles.slice(k, k + chunkSize);
             try {
-                const res = await EllipsisApi.post("/geometry/tile", body, { token: this.options.token });
+                const res = await EllipsisApi.get(`/path/${this.options.pathId}/vector/layer/${this.options.layerId}/featuresByTiles`, body, { token: this.options.token });
                 result = result.concat(res);
             } catch (e) {
                 console.error('an error occured with getting tile features');
@@ -310,9 +312,9 @@ class EllipsisVectorLayerBase {
     //Requests layer info for layer with id layerId. Sets this in state.layerInfo.
     fetchLayerInfo = async () => {
         try {
-            const info = await EllipsisApi.getInfo(this.options.blockId, { token: this.options.token });
-            if (!info.geometryLayers) throw new Error('no geometrylayers present in info');
-            const layerInfo = info.geometryLayers.find(x => x.id === this.options.layerId);
+            const info = await EllipsisApi.getPath(this.options.pathId, { token: this.options.token });
+            if (!info?.vector?.layers) throw new Error('no layers present in info');
+            const layerInfo = info.vector.layers.find(x => x.id === this.options.layerId);
 
             if (!layerInfo) throw new Error('could not find layer in info');
 

@@ -1,4 +1,5 @@
-let apiUrl = 'https://api.ellipsis-drive.com/v1';
+let apiUrl = 'https://api.ellipsis-drive.com/v2';
+let deprecatedApiUrl = 'https://api.ellipsis-drive.com/v1';
 
 function ApiError(status, message) {
     const error = Error.call(this, message);
@@ -9,20 +10,30 @@ function ApiError(status, message) {
     this.status = status;
 }
 
-async function ellipsisApiManagerFetch(method, url, body, user) {
+function toUrlParams(jsonParams, noPrefix = false) {
+    Object.entries(jsonParams).forEach(([key, val]) => {
+        if (typeof val === 'object') //arrays are also objects in js
+            jsonParams[key] = JSON.stringify(val)
+        if (val == undefined)
+            delete jsonParams[key];
+    });
+    const params = new URLSearchParams(jsonParams).toString();
+    if (noPrefix) return params;
+    return (params === "" ? "" : ("?" + params));
+}
+
+async function ellipsisApiManagerFetch(method, route, body, user, _apiUrl) {
     let headers = {};
-    let urlAddition = '';
 
     headers['Content-Type'] = 'application/json';
-
-    if (user) {
+    if (user)
         headers['Authorization'] = `Bearer ${user.token}`;
-        if (user.mapId) {
-            urlAddition = `?mapId=${user.mapId}`;
-        }
-    }
 
-    url = `${apiUrl}${url}${urlAddition}`;
+    const useUrlParams = method === "HEAD" || method === "GET" || method === "DELETE";
+    const urlParamsJson = useUrlParams ? { mapId: user?.mapId, ...body } : { mapId: user?.mapId }
+    const urlAddition = toUrlParams(urlParamsJson);
+
+    const url = `${_apiUrl ?? apiUrl}${route}${urlAddition}`;
     let gottenResponse = null;
     let isText = false;
     let isJson = false;
@@ -32,7 +43,7 @@ async function ellipsisApiManagerFetch(method, url, body, user) {
         headers: headers,
     };
 
-    if (body) {
+    if (body && !useUrlParams) {
         options.body = JSON.stringify(body);
     }
 
@@ -78,6 +89,7 @@ async function ellipsisApiManagerFetch(method, url, body, user) {
         });
 }
 
+export { toUrlParams }
 
 export default {
 
@@ -103,6 +115,10 @@ export default {
         return ellipsisApiManagerFetch('POST', url, body, user);
     },
 
+    get: (url, body, user) => {
+        return ellipsisApiManagerFetch('GET', url, body, user);
+    },
+
     /**
      * Login into an ellipsis drive account with a username and password
      * @param {string} username 
@@ -113,15 +129,26 @@ export default {
         return ellipsisApiManagerFetch('POST', '/account/login', { username, password });
     },
 
+
     /**
-     * Get metadata for something stored in your drive.
+     * Get metadata of path with pathId
+     * @param {string} pathId 
+     * @param {{token: string}}} user 
+     */
+    getPath: (pathId, user) => {
+        return ellipsisApiManagerFetch('GET', `/path/${pathId}`, undefined, user);
+    },
+
+    /**
+     * @deprecated Get metadata for something stored in your drive.
      * @param {string} pathId the id of something stored in your drive like a block, shape or folder
      * @param {{token: string}} user 
      * @returns metadata of the given map/shape/folder
      */
     getInfo: (pathId, user) => {
-        return ellipsisApiManagerFetch('POST', '/info', { pathId }, user);
+        return getPath(pathId, user)
     },
+
 
     /**
      * @deprecated The metadata request was ported to an info request. So please use getInfo() instead.
@@ -135,7 +162,7 @@ export default {
         if (includeDeleted) body = { mapId: blockId, includeDeleted };
         else body = { mapId: blockId };
 
-        return ellipsisApiManagerFetch('POST', '/metadata', body, user);
+        return ellipsisApiManagerFetch('POST', '/metadata', body, user, deprecatedApiUrl);
     },
 
 }

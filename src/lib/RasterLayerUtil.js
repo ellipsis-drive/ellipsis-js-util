@@ -1,18 +1,17 @@
-import EllipsisApi from "./EllipsisApi";
+import EllipsisApi, { toUrlParams } from "./EllipsisApi";
 
 const getSlippyMapUrl = (options = {}) => {
 
-    if (options.visualization) {
-        let url = `${EllipsisApi.getApiUrl()}/settings/mapLayers/preview/${options.blockId}/${options.captureId}/${encodeURIComponent(options.visualization.method)}/{z}/{x}/{y}?parameters=${encodeURIComponent(JSON.stringify(options.visualization.parameters))}`;
-        if (options.token) url += '&token=' + options.token;
-        return url;
-    }
-    let url = `${EllipsisApi.getApiUrl()}/tileService/${options.blockId}/${options.captureId}/${options.visualizationId}/{z}/{x}/{y}`;
-    if (options.token) url += '?token=' + options.token;
+    const urlAddition = toUrlParams({
+        token: options.token,
+        layer: options.layer ?? options.visualizationId ?? options.visualization
+    });
 
+    ///path/{pathId}/raster/timestamp/{timestampId}/tile/{z}/{x}/{y}
+    let url = `${EllipsisApi.getApiUrl()}/path/${options.pathId ?? options.blockId}/raster/timestamp/${options.timestampId ?? options.captureId}/tile/{z}/{x}/{y}${urlAddition}`;
     return url;
 }
 
-const getLayerId = (options = {}) => `${options.blockId}_${options.captureId}_${options.visualizationId}_${options.visualization ? encodeURIComponent(JSON.stringify(options.visualization)) : 'novis'}`;
+const getLayerId = (options = {}) => `${options.pathId ?? options.blockId}_${options.timestampId ?? options.captureId}_${options.visualizationId}_${options.visualization ? encodeURIComponent(JSON.stringify(options.visualization)) : 'novis'}`;
 
 export { getSlippyMapUrl, getLayerId };
