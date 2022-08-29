@@ -17,7 +17,8 @@ const styleKeys = {
     borderColor: [],
     borderOpacity: [],
     fillColor: ['color'],
-    fillOpacity: ['opacity']
+    fillOpacity: ['opacity'],
+    popupProperty: []
 }
 
 const getStyleKeys = (filters = { blacklist: [] }) => {
