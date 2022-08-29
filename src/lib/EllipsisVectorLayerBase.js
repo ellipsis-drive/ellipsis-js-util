@@ -12,7 +12,14 @@ class EllipsisVectorLayerBase {
         maxFeaturesPerTile: 500,
         useMarkers: false,
         loadAll: false,
-        fetchInterval: 0
+        fetchInterval: 0,
+        levelOfDetailMode: 'dynamic',
+        levelOfDetailMapper: (zoom) => {
+            const transitions = [3, 6, 9, 12, 15]
+            const detailLevel = transitions.findIndex(x => zoom < x) + 1;
+            return detailLevel === 0 ? 6 : detailLevel
+        },
+        levelOfDetail: 6
     };
 
     static optionModifiers = {
@@ -25,7 +32,8 @@ class EllipsisVectorLayerBase {
     loadingState = {
         loadInterrupters: [],
         loadingTimeout: undefined,
-        cache: [],
+        cache: {}, // {featureId: [{feature_lod_1}, {feature_lod_2}, ..., {feature_lod_6}], otherFeatureId: [...]}
+        featuresInTileCache: {}, // {tileId: [...featureIds], otherTileId: [...featureIds]}
         nextPageStart: undefined,
         isLoading: false,
         updateLock: false,
@@ -80,16 +88,17 @@ class EllipsisVectorLayerBase {
     }
 
     getFeatures = () => {
-        let features;
         if (this.options.loadAll) {
-            features = this.loadingState.cache;
-        } else {
-            features = this.tiles.flatMap((t) => {
-                const geoTile = this.loadingState.cache[this.getTileId(t)];
-                return geoTile ? geoTile.elements : [];
-            });
+            return Object.values(this.loadingState.cache).map(featureCache => featureCache[levelOfDetail])
         }
-        return features;
+        return this.tiles.flatMap((t) => {
+            const featureIdsInTile = this.loadingState.featuresInTileCache[this.getTileId(t)];
+            if (!featureIdsInTile) return []
+            return featureIdsInTile.map(idInTile => {
+                const cachedFeature = this.loadingState.cache[idInTile];
+                return cachedFeature && cachedFeature[levelOfDetail]
+            }).filter(x => x)
+        });
     };
 
     clearLayer = async () => {
