@@ -4,7 +4,8 @@ const getSlippyMapUrl = (options = {}) => {
 
     const urlAddition = toUrlParams({
         token: options.token,
-        layer: options.layer ?? options.visualizationId ?? options.visualization
+        layer: options.layer ?? options.visualizationId ?? options.visualization,
+        mask: options.mask
     });
 
     ///path/{pathId}/raster/timestamp/{timestampId}/tile/{z}/{x}/{y}
