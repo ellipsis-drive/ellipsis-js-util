@@ -92,7 +92,7 @@ class EllipsisVectorLayerBase {
             return Object.values(this.loadingState.cache).map(featureCache => featureCache[levelOfDetail])
         }
         return this.tiles.flatMap((t) => {
-            const featureIdsInTile = this.loadingState.featuresInTileCache[this.getTileId(t)];
+            const featureIdsInTile = this.loadingState.featuresInTileCache[this.getTileId(t)]?.featureIds;
             if (!featureIdsInTile) return []
             return featureIdsInTile.map(idInTile => {
                 const cachedFeature = this.loadingState.cache[idInTile];
@@ -103,7 +103,7 @@ class EllipsisVectorLayerBase {
 
     clearLayer = async () => {
         await this.awaitNotLoading();
-        this.loadingState.cache = [];
+        this.loadingState.cache = {};
         this.loadingState.nextPageStart = undefined;
     }
 
@@ -192,14 +192,16 @@ class EllipsisVectorLayerBase {
         rej();
     });
 
+    // TODO look at date
     ensureMaxCacheSize = () => {
-        const keys = Object.keys(this.loadingState.cache);
+        const keys = Object.keys(this.loadingState.featuresInTileCache);
         if (keys.length > this.options.maxTilesInCache) {
-            const dates = keys.map((k) => this.loadingState.cache[k].date).sort();
+            const dates = keys.map((k) => this.loadingState.featuresInTileCache[k].date).sort();
             const clipValue = dates[9];
             keys.forEach((key) => {
-                if (this.loadingState.cache[key].date <= clipValue) {
-                    delete this.loadingState.cache[key];
+                if (this.loadingState.featuresInTileCache[key].date <= clipValue) {
+                    // TODO make sure to also delete from this.loadingState.cache
+                    delete this.loadingState.featuresInTileCache[key];
                 }
             });
         }
@@ -228,7 +230,7 @@ class EllipsisVectorLayerBase {
                     this.compileStyle(x);
                     if (this.loadOptions.onEachFeature)
                         this.loadOptions.onEachFeature(x);
-                    this.loadingState.cache.push(x);
+                    this.loadingState.cache[x.properties.id] = x;
                 });
             }
         } catch (e) {
@@ -246,14 +248,14 @@ class EllipsisVectorLayerBase {
             const tileId = this.getTileId(t);
 
             //If not cached, always try to load features.
-            if (!this.loadingState.cache[tileId])
+            if (!this.loadingState.featuresInTileCache[tileId])
                 return { tileId: t }
 
-            const pageStart = this.loadingState.cache[tileId].nextPageStart;
+            const pageStart = this.loadingState.featuresInTileCache[tileId].nextPageStart;
 
 
             //Check if tile is not already fully loaded, and if more features may be loaded
-            if (pageStart && this.loadingState.cache[tileId].amount <= this.options.maxFeaturesPerTile && this.loadingState.cache[tileId].size <= this.options.maxMbPerTile)
+            if (pageStart && this.loadingState.featuresInTileCache[tileId].amount <= this.options.maxFeaturesPerTile && this.loadingState.featuresInTileCache[tileId].size <= this.options.maxMbPerTile)
                 return { tileId: t, pageStart }
 
             return null;
@@ -290,17 +292,17 @@ class EllipsisVectorLayerBase {
         for (let j = 0; j < tiles.length; j++) {
             const tileId = this.getTileId(tiles[j].tileId);
 
-            if (!this.loadingState.cache[tileId]) {
-                this.loadingState.cache[tileId] = {
+            if (!this.loadingState.featuresInTileCache[tileId]) {
+                this.loadingState.featuresInTileCache[tileId] = {
                     size: 0,
                     amount: 0,
-                    elements: [],
+                    featureIds: [],
                     nextPageStart: null,
                 };
             }
 
-            //set tile info for tile in this.
-            const tileData = this.loadingState.cache[tileId];
+            // Update tile cache with new feature ids etc.
+            const tileData = this.loadingState.featuresInTileCache[tileId];
             tileData.date = date;
             tileData.size = tileData.size + result[j].size;
             tileData.amount = tileData.amount + result[j].result.features.length;
@@ -312,8 +314,16 @@ class EllipsisVectorLayerBase {
                         this.loadOptions.onEachFeature(x);
                 });
             }
-            tileData.elements = tileData.elements.concat(result[j].result.features);
+            tileData.featureIds.push(result[j].result.features.map(feature => feature.properties.id))
 
+            // Cache feature by id
+            result[j].result.features.forEach(feature => {
+                const featureId = feature.properties.id;
+                if (!this.loadingState.cache[featureId])
+                    this.loadingState.cache[featureId] = new Array(6);
+                if (!this.loadingState.cache[featureId][levelOfDetail])
+                    this.loadingState.cache[featureId][levelOfDetail] = feature
+            })
         }
         return true;
     };
