@@ -81,6 +81,7 @@ class EllipsisVectorLayerBase {
         Object.keys(options).forEach(x => this.options[x] = options[x]);
 
         this.id = `${this.options.pathId}_${this.options.layerId}`;
+        this.levelOfDetail = this.options.levelOfDetail;
     }
 
     getLayerInfo = () => {
@@ -88,15 +89,17 @@ class EllipsisVectorLayerBase {
     }
 
     getFeatures = () => {
+        console.log(this.loadingState.cache)
+        console.log(this.loadingState.featuresInTileCache)
         if (this.options.loadAll) {
-            return Object.values(this.loadingState.cache).map(featureCache => featureCache[levelOfDetail])
+            return Object.values(this.loadingState.cache).map(featureCache => featureCache[this.levelOfDetail - 1])
         }
         return this.tiles.flatMap((t) => {
             const featureIdsInTile = this.loadingState.featuresInTileCache[this.getTileId(t)]?.featureIds;
             if (!featureIdsInTile) return []
             return featureIdsInTile.map(idInTile => {
                 const cachedFeature = this.loadingState.cache[idInTile];
-                return cachedFeature && cachedFeature[levelOfDetail]
+                return cachedFeature && cachedFeature[this.levelOfDetail - 1]
             }).filter(x => x)
         });
     };
@@ -314,15 +317,15 @@ class EllipsisVectorLayerBase {
                         this.loadOptions.onEachFeature(x);
                 });
             }
-            tileData.featureIds.push(result[j].result.features.map(feature => feature.properties.id))
+            tileData.featureIds.push(...result[j].result.features.map(feature => feature.properties.id))
 
             // Cache feature by id
             result[j].result.features.forEach(feature => {
                 const featureId = feature.properties.id;
                 if (!this.loadingState.cache[featureId])
                     this.loadingState.cache[featureId] = new Array(6);
-                if (!this.loadingState.cache[featureId][levelOfDetail])
-                    this.loadingState.cache[featureId][levelOfDetail] = feature
+                if (!this.loadingState.cache[featureId][this.levelOfDetail - 1])
+                    this.loadingState.cache[featureId][this.levelOfDetail - 1] = feature
             })
         }
         return true;
