@@ -89,8 +89,8 @@ class EllipsisVectorLayerBase {
     }
 
     getFeatures = () => {
-        console.log(this.loadingState.cache)
-        console.log(this.loadingState.featuresInTileCache)
+        // console.log(this.loadingState.cache)
+        // console.log(this.loadingState.featuresInTileCache)
         if (this.options.loadAll) {
             return Object.values(this.loadingState.cache).map(featureCache => featureCache[this.levelOfDetail - 1])
         }
@@ -216,7 +216,7 @@ class EllipsisVectorLayerBase {
 
         const body = {
             pageStart: this.loadingState.nextPageStart,
-            returnType: this.options.centerPoints ? "center" : "geometry",
+            returnType: this.getReturnType(),
             zipTheResponse: true,
             pageSize: Math.min(3000, this.options.pageSize),
             styleId: this.options.styleId,
@@ -267,7 +267,7 @@ class EllipsisVectorLayerBase {
         if (tiles.length === 0) return false;
 
         const body = {
-            returnType: this.options.centerPoints ? "center" : "geometry",
+            returnType: this.getReturnType(),
             zipTheResponse: true,
             pageSize: this.options.pageSize,
             styleId: this.options.styleId,
@@ -349,7 +349,6 @@ class EllipsisVectorLayerBase {
     //Reads relevant styling info from state.layerInfo. Sets this in state.styleInfo.
     fetchStylingInfo = () => {
         const keysToExtract = getStyleKeys({ blacklist: ['radius'] });
-
         if (!this.options.styleId && this.options.style) {
             this.info.style = this.options.style ? extractStyling(this.options.style.parameters, keysToExtract) : undefined;
             return;
@@ -365,6 +364,14 @@ class EllipsisVectorLayerBase {
         this.info.style = rawStyling && rawStyling.parameters ?
             extractStyling(rawStyling.parameters, keysToExtract) : undefined;
     };
+
+    getReturnType = () => {
+        if (this.options.centerPoints)
+            return "center"
+        if (this.info.style.popupProperty)
+            return "all"
+        return "geometry"
+    }
 
     recompileStyles = () => {
         this.getFeatures().forEach(x => this.compileStyle(x));

@@ -7,7 +7,7 @@ const defaultStyle = {
     borderColor: '#000000',
     borderOpacity: 1,
     fillColor: '#000000',
-    fillOpacity: 0.5
+    fillOpacity: 0.5,
 }
 
 //Map style keys to possible aliases
@@ -78,7 +78,6 @@ const getFeatureStyling = (feature, ...stylingSources) => {
 
     //Rightmost value will take precidence over values to the left in merge.
     let combinedStyles = mergeObjects(propertyStyle, ...stylingSources.map(x => x ? extractStyling(x) : undefined));
-
 
     //Split hex values in opacity and hex value if possible.
     let parsedBorderColor = parseHex(combinedStyles.borderColor);
