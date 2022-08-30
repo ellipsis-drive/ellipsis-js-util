@@ -81,7 +81,11 @@ class EllipsisVectorLayerBase {
         Object.keys(options).forEach(x => this.options[x] = options[x]);
 
         this.id = `${this.options.pathId}_${this.options.layerId}`;
-        this.levelOfDetail = this.options.levelOfDetail;
+
+        if (this.options.levelOfDetailMode === "dynamic")
+            this.levelOfDetail = this.options.levelOfDetailMapper(this.zoom);
+        else
+            this.levelOfDetail = this.options.levelOfDetail;
     }
 
     getLayerInfo = () => {
@@ -89,13 +93,11 @@ class EllipsisVectorLayerBase {
     }
 
     getFeatures = () => {
-        // console.log(this.loadingState.cache)
-        // console.log(this.loadingState.featuresInTileCache)
         if (this.options.loadAll) {
             return Object.values(this.loadingState.cache).map(featureCache => featureCache[this.levelOfDetail - 1])
         }
         return this.tiles.flatMap((t) => {
-            const featureIdsInTile = this.loadingState.featuresInTileCache[this.getTileId(t)]?.featureIds;
+            const featureIdsInTile = this.loadingState.featuresInTileCache[this.getTileId(t, this.levelOfDetail)]?.featureIds;
             if (!featureIdsInTile) return []
             return featureIdsInTile.map(idInTile => {
                 const cachedFeature = this.loadingState.cache[idInTile];
@@ -136,8 +138,23 @@ class EllipsisVectorLayerBase {
         const maxZoom = this.options.maxZoom === undefined ? this.info.layerInfo.zoom : this.options.maxZoom;
 
         this.zoom = Math.max(Math.min(maxZoom, viewport.zoom - 2), 0);
+        if (this.options.levelOfDetailMode === "dynamic")
+            this.levelOfDetail = this.options.levelOfDetailMapper(viewport.zoom - 2);
+
         this.tiles = this.boundsToTiles(viewport.bounds, this.zoom);
-        this.load(this.updateView, this.options.fetchInterval);
+
+        const lodChanged = !this.previousLevelOfDetail || this.previousLevelOfDetail !== this.levelOfDetail;
+        if (lodChanged) {
+            this.options.debug("level of detail changed");
+            console.log(this.levelOfDetail)
+            console.log("level of detail chainged")
+            this.previousLevelOfDetail = this.levelOfDetail;
+            this.updateView();
+        }
+        this.load(() => {
+            console.log("load view")
+            this.updateView()
+        }, this.options.fetchInterval);
     };
 
     load = async (onload, timeout) => {
@@ -203,7 +220,28 @@ class EllipsisVectorLayerBase {
             const clipValue = dates[9];
             keys.forEach((key) => {
                 if (this.loadingState.featuresInTileCache[key].date <= clipValue) {
-                    // TODO make sure to also delete from this.loadingState.cache
+
+                    //Make sure that any features that are referenced to by the to-be-deleted 
+                    //featuresInTileCache are deleted if they are not referenced elsewhere.
+                    const danglingFeatures = this.loadingState.featuresInTileCache[key].featurIds;
+                    const referencedFeatures = [];
+                    const toBeDeleted = this.loadingState.featuresInTileCache[key];
+                    Object.entries(this.loadingState.featuresInTileCache).forEach(([k, v]) => {
+                        if (k === key) return;
+                        if (v.levelOfDetail !== toBeDeleted.levelOfDetail) return;
+
+                        danglingFeatures.forEach(d => {
+                            if (v.featureIds.includes(d) && !referencedFeatures.includes(d))
+                                referencedFeatures.push(d);
+                        });
+                    });
+                    // console.log("the following features are still referenced:");
+                    // console.log(referencedFeatures);
+                    danglingFeatures.filter(x => !referencedFeatures.includes(x)).forEach(d => {
+                        delete this.loadingState.cache[d][toBeDeleted.levelOfDetail - 1];
+                    });
+
+                    //Now delete the tile that references the features inside it.
                     delete this.loadingState.featuresInTileCache[key];
                 }
             });
@@ -211,7 +249,7 @@ class EllipsisVectorLayerBase {
     };
 
     requestAllGeoJsons = async () => {
-        if (this.loadingState.nextPageStart === 4)
+        if (this.loadingState.nextPageStart === 4) //TODO, load again when lod changes
             return false;
 
         const body = {
@@ -220,7 +258,8 @@ class EllipsisVectorLayerBase {
             zipTheResponse: true,
             pageSize: Math.min(3000, this.options.pageSize),
             styleId: this.options.styleId,
-            style: this.options.style
+            style: this.options.style,
+            levelOfDetail: this.levelOfDetail === 6 ? undefined : this.levelOfDetail
         };
 
         try {
@@ -246,20 +285,22 @@ class EllipsisVectorLayerBase {
 
     requestTileGeoJsons = async () => {
         const date = Date.now();
+        const levelOfDetailSnapshot = this.levelOfDetail;
         //create tiles parameter which contains tiles that need to load more features
         const tiles = this.tiles.map((t) => {
-            const tileId = this.getTileId(t);
+            const tileId = this.getTileId(t, levelOfDetailSnapshot);
 
             //If not cached, always try to load features.
             if (!this.loadingState.featuresInTileCache[tileId])
-                return { tileId: t }
+                return { tileId: t, levelOfDetail: levelOfDetailSnapshot === 6 ? undefined : levelOfDetailSnapshot }
 
             const pageStart = this.loadingState.featuresInTileCache[tileId].nextPageStart;
 
 
             //Check if tile is not already fully loaded, and if more features may be loaded
             if (pageStart && this.loadingState.featuresInTileCache[tileId].amount <= this.options.maxFeaturesPerTile && this.loadingState.featuresInTileCache[tileId].size <= this.options.maxMbPerTile)
-                return { tileId: t, pageStart }
+                return { tileId: t, pageStart, levelOfDetail: levelOfDetailSnapshot === 6 ? undefined : levelOfDetailSnapshot }
+
 
             return null;
         }).filter(x => x);
@@ -293,7 +334,7 @@ class EllipsisVectorLayerBase {
 
         //Add newly loaded data to cache
         for (let j = 0; j < tiles.length; j++) {
-            const tileId = this.getTileId(tiles[j].tileId);
+            const tileId = this.getTileId(tiles[j].tileId, levelOfDetailSnapshot);
 
             if (!this.loadingState.featuresInTileCache[tileId]) {
                 this.loadingState.featuresInTileCache[tileId] = {
@@ -309,6 +350,7 @@ class EllipsisVectorLayerBase {
             tileData.date = date;
             tileData.size = tileData.size + result[j].size;
             tileData.amount = tileData.amount + result[j].result.features.length;
+            tileData.levelOfDetail = levelOfDetailSnapshot;
             tileData.nextPageStart = result[j].nextPageStart;
             if (result[j].result.features) {
                 result[j].result.features.forEach(x => {
@@ -324,8 +366,11 @@ class EllipsisVectorLayerBase {
                 const featureId = feature.properties.id;
                 if (!this.loadingState.cache[featureId])
                     this.loadingState.cache[featureId] = new Array(6);
-                if (!this.loadingState.cache[featureId][this.levelOfDetail - 1])
-                    this.loadingState.cache[featureId][this.levelOfDetail - 1] = feature
+                if (!this.loadingState.cache[featureId][levelOfDetailSnapshot - 1]) {
+                    feature.lod = levelOfDetailSnapshot - 1;
+                    this.loadingState.cache[featureId][levelOfDetailSnapshot - 1] = feature;
+
+                }
             })
         }
         return true;
@@ -384,7 +429,7 @@ class EllipsisVectorLayerBase {
         feature.properties.compiledStyle = compiledStyle;
     };
 
-    getTileId = (tile) => `${tile.zoom}_${tile.tileX}_${tile.tileY}`;
+    getTileId = (tile, lod = this.levelOfDetail) => `${tile.zoom}_${tile.tileX}_${tile.tileY}_${lod}`;
 
     boundsToTiles = (bounds, zoom) => {
         const xMin = Math.max(bounds.xMin, -180);
