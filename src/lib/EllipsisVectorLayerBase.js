@@ -33,8 +33,8 @@ class EllipsisVectorLayerBase {
         loadInterrupters: [],
         loadingTimeout: undefined,
         cache: {}, // {featureId: [{feature_lod_1}, {feature_lod_2}, ..., {feature_lod_6}], otherFeatureId: [...]}
-        featuresInTileCache: {}, // {tileId: [...featureIds], otherTileId: [...featureIds]}
-        nextPageStart: undefined,
+        featuresInTileCache: {}, // {tileId: {featureIds: [], ...}, otherTileId: {featureIds: [], ...}}
+        nextPageStart: Array(6),
         isLoading: false,
         updateLock: false,
         missedCall: false
@@ -94,7 +94,7 @@ class EllipsisVectorLayerBase {
 
     getFeatures = () => {
         if (this.options.loadAll) {
-            return Object.values(this.loadingState.cache).map(featureCache => featureCache[this.levelOfDetail - 1])
+            return Object.values(this.loadingState.cache).map(featureCache => featureCache[this.levelOfDetail - 1]).filter(x => x)
         }
         return this.tiles.flatMap((t) => {
             const featureIdsInTile = this.loadingState.featuresInTileCache[this.getTileId(t, this.levelOfDetail)]?.featureIds;
@@ -109,7 +109,7 @@ class EllipsisVectorLayerBase {
     clearLayer = async () => {
         await this.awaitNotLoading();
         this.loadingState.cache = {};
-        this.loadingState.nextPageStart = undefined;
+        this.loadingState.nextPageStart = Array(6);
     }
 
     /**
@@ -144,7 +144,7 @@ class EllipsisVectorLayerBase {
         this.tiles = this.boundsToTiles(viewport.bounds, this.zoom);
 
         const lodChanged = !this.previousLevelOfDetail || this.previousLevelOfDetail !== this.levelOfDetail;
-        if (lodChanged) {
+        if (lodChanged && this.options.levelOfDetailMode === "dynamic") {
             this.options.debug("level of detail changed");
             console.log(this.levelOfDetail)
             console.log("level of detail chainged")
@@ -249,11 +249,14 @@ class EllipsisVectorLayerBase {
     };
 
     requestAllGeoJsons = async () => {
-        if (this.loadingState.nextPageStart === 4) //TODO, load again when lod changes
+
+        const levelOfDetailSnapshot = this.levelOfDetail;
+
+        if (this.loadingState.nextPageStart[levelOfDetailSnapshot - 1] === 4) //TODO, load again when lod changes
             return false;
 
         const body = {
-            pageStart: this.loadingState.nextPageStart,
+            pageStart: this.loadingState.nextPageStart[levelOfDetailSnapshot - 1],
             returnType: this.getReturnType(),
             zipTheResponse: true,
             pageSize: Math.min(3000, this.options.pageSize),
@@ -264,15 +267,17 @@ class EllipsisVectorLayerBase {
 
         try {
             const res = await EllipsisApi.get(`/path/${this.options.pathId}/vector/layer/${this.options.layerId}/listFeatures`, body, { token: this.options.token });
-            this.loadingState.nextPageStart = res.nextPageStart;
+            this.loadingState.nextPageStart[levelOfDetailSnapshot - 1] = res.nextPageStart;
             if (!res.nextPageStart)
-                this.loadingState.nextPageStart = 4; //EOT (end of transmission)
+                this.loadingState.nextPageStart[levelOfDetailSnapshot - 1] = 4; //EOT (end of transmission)
             if (res.result && res.result.features) {
                 res.result.features.forEach(x => {
                     this.compileStyle(x);
                     if (this.loadOptions.onEachFeature)
                         this.loadOptions.onEachFeature(x);
-                    this.loadingState.cache[x.properties.id] = x;
+                    if (!this.loadingState.cache[x.properties.id])
+                        this.loadingState.cache[x.properties.id] = Array(6);
+                    this.loadingState.cache[x.properties.id][levelOfDetailSnapshot - 1] = x;
                 });
             }
         } catch (e) {
