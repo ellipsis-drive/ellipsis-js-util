@@ -145,14 +145,11 @@ class EllipsisVectorLayerBase {
 
         const lodChanged = !this.previousLevelOfDetail || this.previousLevelOfDetail !== this.levelOfDetail;
         if (lodChanged && this.options.levelOfDetailMode === "dynamic") {
-            this.options.debug("level of detail changed");
-            console.log(this.levelOfDetail)
-            console.log("level of detail chainged")
+            this.options.debug(`level of detail changed from ${this.previousLevelOfDetail} to ${this.levelOfDetail}`);
             this.previousLevelOfDetail = this.levelOfDetail;
             this.updateView();
         }
         this.load(() => {
-            console.log("load view")
             this.updateView()
         }, this.options.fetchInterval);
     };
@@ -184,6 +181,7 @@ class EllipsisVectorLayerBase {
 
         if (!cachedSomething && !this.loadingState.missedCall) {
             this.options.debug('did not cache new data');
+            this.ensureMaxCacheSize();
             return;
         }
         this.options.debug('loaded new data, page start: ' + this.loadingState.nextPageStart);
@@ -212,10 +210,11 @@ class EllipsisVectorLayerBase {
         rej();
     });
 
-    // TODO look at date
     ensureMaxCacheSize = () => {
+        if (this.options.maxTilesInCache === undefined) return;
         const keys = Object.keys(this.loadingState.featuresInTileCache);
         if (keys.length > this.options.maxTilesInCache) {
+            this.options.debug("There are too many tiles in the cache, removing the oldest ones.");
             const dates = keys.map((k) => this.loadingState.featuresInTileCache[k].date).sort();
             const clipValue = dates[9];
             keys.forEach((key) => {
@@ -223,7 +222,7 @@ class EllipsisVectorLayerBase {
 
                     //Make sure that any features that are referenced to by the to-be-deleted 
                     //featuresInTileCache are deleted if they are not referenced elsewhere.
-                    const danglingFeatures = this.loadingState.featuresInTileCache[key].featurIds;
+                    const danglingFeatures = this.loadingState.featuresInTileCache[key].featurIds ?? [];
                     const referencedFeatures = [];
                     const toBeDeleted = this.loadingState.featuresInTileCache[key];
                     Object.entries(this.loadingState.featuresInTileCache).forEach(([k, v]) => {
@@ -235,8 +234,7 @@ class EllipsisVectorLayerBase {
                                 referencedFeatures.push(d);
                         });
                     });
-                    // console.log("the following features are still referenced:");
-                    // console.log(referencedFeatures);
+
                     danglingFeatures.filter(x => !referencedFeatures.includes(x)).forEach(d => {
                         delete this.loadingState.cache[d][toBeDeleted.levelOfDetail - 1];
                     });
