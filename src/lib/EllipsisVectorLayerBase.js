@@ -109,6 +109,7 @@ class EllipsisVectorLayerBase {
     clearLayer = async () => {
         await this.awaitNotLoading();
         this.loadingState.cache = {};
+        this.loadingState.featuresInTileCache = {}
         this.loadingState.nextPageStart = Array(6);
     }
 
