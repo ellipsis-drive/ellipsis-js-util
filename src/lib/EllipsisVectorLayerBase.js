@@ -1,4 +1,5 @@
 import EllipsisApi from "./EllipsisApi";
+import EllipsisVectorLayerBaseError from "./EllipsisVectorLayerError";
 import { getFeatureStyling, extractStyling, getStyleKeys } from "./VectorLayerUtil";
 
 class EllipsisVectorLayerBase {
@@ -60,16 +61,22 @@ class EllipsisVectorLayerBase {
 
     constructor(options = {}) {
 
-        if (!options.pathId)
-            options.pathId = options.blockId;
+        console.log("constructor call :O");
+
         if (!options.pathId) {
-            console.error('no path id specified');
-            return;
+            options.pathId = options.blockId || options.mapId;
+
+            if (options.pathId)
+                console.warn("We recommended to use the property name pathId instead of mapId or blockId to identify ellipsis drive maps to reduce confusion with other libraries.");
         }
 
-        if (!options.layerId) {
-            console.error('no layer id specified');
-            return;
+        if (!options.pathId) {
+            throw new EllipsisVectorLayerBaseError("You did not specify a path ID.");
+        }
+
+        if (!options.timestampId && options.layerId) {
+            options.timestampId = options.layerId;
+            console.warn("We recommended to use the property name timestampId instead of layerId to identify ellipsis drive timestamps.");
         }
 
         Object.keys(EllipsisVectorLayerBase.defaultOptions).forEach(x => {
@@ -80,7 +87,7 @@ class EllipsisVectorLayerBase {
         this.options = {};
         Object.keys(options).forEach(x => this.options[x] = options[x]);
 
-        this.id = `${this.options.pathId}_${this.options.layerId}`;
+        this.id = `${this.options.pathId}_${this.options.timestampId}`;
 
         if (this.options.levelOfDetailMode === "dynamic")
             this.levelOfDetail = this.options.levelOfDetailMapper(this.zoom);
@@ -265,7 +272,7 @@ class EllipsisVectorLayerBase {
         };
 
         try {
-            const res = await EllipsisApi.get(`/path/${this.options.pathId}/vector/layer/${this.options.layerId}/listFeatures`, body, { token: this.options.token });
+            const res = await EllipsisApi.get(`/path/${this.options.pathId}/vector/timestamp/${this.options.timestampId}/listFeatures`, body, { token: this.options.token });
             this.loadingState.nextPageStart[levelOfDetailSnapshot - 1] = res.nextPageStart;
             if (!res.nextPageStart)
                 this.loadingState.nextPageStart[levelOfDetailSnapshot - 1] = 4; //EOT (end of transmission)
@@ -327,7 +334,7 @@ class EllipsisVectorLayerBase {
         for (let k = 0; k < tiles.length; k += chunkSize) {
             body.tiles = tiles.slice(k, k + chunkSize);
             try {
-                const res = await EllipsisApi.get(`/path/${this.options.pathId}/vector/layer/${this.options.layerId}/featuresByTiles`, body, { token: this.options.token });
+                const res = await EllipsisApi.get(`/path/${this.options.pathId}/vector/timestamp/${this.options.timestampId}/featuresByTiles`, body, { token: this.options.token });
                 result = result.concat(res);
             } catch (e) {
                 console.error('an error occured with getting tile features');
@@ -382,17 +389,44 @@ class EllipsisVectorLayerBase {
 
     //Requests layer info for layer with id layerId. Sets this in state.layerInfo.
     fetchLayerInfo = async () => {
-        try {
-            const info = await EllipsisApi.getPath(this.options.pathId, { token: this.options.token });
-            if (!info?.vector?.layers) throw new Error('no layers present in info');
-            const layerInfo = info.vector.layers.find(x => x.id === this.options.layerId);
+        const info = await EllipsisApi.getPath(this.options.pathId, { token: this.options.token });
+        if (!info?.vector?.timestamps?.length) throw new EllipsisVectorLayerBaseError(`Specified path "${this.options.pathId}" does not contain any data.`);
 
-            if (!layerInfo) throw new Error('could not find layer in info');
+        if (info.trashed) console.warn("Path is trashed.");
+        if (info.type !== "vector") throw new EllipsisVectorLayerBaseError("Path info type is not vector.");
 
-            this.info.layerInfo = layerInfo;
-        } catch (e) {
-            console.error('error in fetching layer info: ' + e.message);
+
+
+        const timestamps = info.vector.timestamps;
+
+
+        const defaultTimestamp = timestamps.find(timestamp => !timestamp.trashed && timestamp.status === "active") ?? timestamps.find(timestamp => timestamp.status === "active") ?? timestamps.find(timestamp => timestamp.trashed);
+
+        //Use default when non layer is specified.
+        if (!this.options.timestampId && defaultTimestamp) {
+            this.info.layerInfo = defaultTimestamp;
+            this.options.debug(`No timestamp ID specified. Picked default ${defaultTimestamp.id}`);
+            return;
         }
+
+        const specifiedTimestamp = timestamps.find(timestamp => timestamp.id === this.options.timestampId);
+
+        //Prioritize using the specified layer.
+        if (specifiedTimestamp) {
+            this.info.layerInfo = specifiedTimestamp;
+            return;
+        }
+
+        //Fallback on defaultLayer with warning when specifiedLayer is not valid.
+        if (!specifiedTimestamp && defaultTimestamp) {
+            this.info.layerInfo = defaultTimestamp;
+            console.warn(`No correct timestamp ID specified. Picked default ${defaultTimestamp.id}`);
+            return;
+        }
+
+        //Throw error when no layer is found to stop any execution with wrong parameters.
+        if (!specifiedTimestamp && !defaultTimestamp)
+            throw new EllipsisVectorLayerBaseError(`Specified timestamp with id=${this.options.timestampId} does not exist and the path has no default timestamp to use as a fallback.`);
     };
 
     //Reads relevant styling info from state.layerInfo. Sets this in state.styleInfo.
@@ -404,7 +438,8 @@ class EllipsisVectorLayerBase {
         }
         if (!this.info.layerInfo || !this.info.layerInfo.styles) {
             this.info.style = undefined;
-            return;
+            //TODO: do we want to throw an error here?
+            throw new EllipsisVectorLayerBaseError("The layer has no style.")
         }
 
         //Get default or specified style object.

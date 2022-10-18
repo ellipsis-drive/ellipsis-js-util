@@ -1,5 +1,4 @@
-let apiUrl = 'https://api.ellipsis-drive.com/v2';
-let deprecatedApiUrl = 'https://api.ellipsis-drive.com/v1';
+let apiUrl = 'https://api.ellipsis-drive.com/v3';
 
 function ApiError(status, message) {
     const error = Error.call(this, message);
@@ -149,20 +148,5 @@ export default {
         return getPath(pathId, user)
     },
 
-
-    /**
-     * @deprecated The metadata request was ported to an info request. So please use getInfo() instead.
-     * @param {string} blockId 
-     * @param {boolean} includeDeleted 
-     * @param {{token: string}} user 
-     * @returns 
-     */
-    getMetadata: (blockId, includeDeleted, user) => {
-        let body;
-        if (includeDeleted) body = { mapId: blockId, includeDeleted };
-        else body = { mapId: blockId };
-
-        return ellipsisApiManagerFetch('POST', '/metadata', body, user, deprecatedApiUrl);
-    },
 
 }
