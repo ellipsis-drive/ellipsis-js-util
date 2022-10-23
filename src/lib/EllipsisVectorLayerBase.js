@@ -62,6 +62,7 @@ class EllipsisVectorLayerBase {
   updateView = () => console.error("update view not implemented");
 
   constructor(options = {}) {
+    console.log("constructor called");
     if (!options.pathId) {
       options.pathId = options.blockId || options.mapId;
 
@@ -82,6 +83,7 @@ class EllipsisVectorLayerBase {
       );
     }
 
+    //Apply option defaults and modifiers, and copy options to 'this' context.
     Object.keys(EllipsisVectorLayerBase.defaultOptions).forEach((x) => {
       if (options[x] == undefined)
         options[x] = EllipsisVectorLayerBase.defaultOptions[x];
@@ -92,6 +94,12 @@ class EllipsisVectorLayerBase {
     );
     this.options = {};
     Object.keys(options).forEach((x) => (this.options[x] = options[x]));
+
+    //Conversion to allow passing style id in style option.
+    if (typeof this.options.style === "string") {
+      this.options.styleId = typeof this.options.style;
+      this.options.style = undefined;
+    }
 
     this.id = `${this.options.pathId}_${this.options.timestampId}`;
 
@@ -301,7 +309,7 @@ class EllipsisVectorLayerBase {
 
     try {
       const res = await EllipsisApi.get(
-        `/path/${this.options.pathId}/vector/timestamp/${this.options.timestampId}/listFeatures`,
+        `/path/${this.options.pathId}/vector/timestamp/${this.info.layerInfo.id}/listFeatures`,
         body,
         { token: this.options.token }
       );
@@ -386,7 +394,7 @@ class EllipsisVectorLayerBase {
       body.tiles = tiles.slice(k, k + chunkSize);
       try {
         const res = await EllipsisApi.get(
-          `/path/${this.options.pathId}/vector/timestamp/${this.options.timestampId}/featuresByTiles`,
+          `/path/${this.options.pathId}/vector/timestamp/${this.info.layerInfo.id}/featuresByTiles`,
           body,
           { token: this.options.token }
         );
@@ -448,6 +456,9 @@ class EllipsisVectorLayerBase {
     const info = await EllipsisApi.getPath(this.options.pathId, {
       token: this.options.token,
     });
+
+    console.log(info);
+
     if (!info?.vector?.timestamps?.length)
       throw new EllipsisVectorLayerBaseError(
         `Specified path "${this.options.pathId}" does not contain any data.`
@@ -458,11 +469,13 @@ class EllipsisVectorLayerBase {
       throw new EllipsisVectorLayerBaseError("Path info type is not vector.");
 
     const timestamps = info.vector.timestamps;
+    this.info.pathStyles = info.vector.styles;
+    console.log(this.info.pathStyles);
 
     const defaultTimestamp = timestamps.find(
       (timestamp) =>
         !timestamp.trashed &&
-        !timestamp.blocked &&
+        !timestamp.availability.blocked &&
         timestamp.status === "active"
     );
 
@@ -504,22 +517,23 @@ class EllipsisVectorLayerBase {
   //Reads relevant styling info from state.layerInfo. Sets this in state.styleInfo.
   fetchStylingInfo = () => {
     const keysToExtract = getStyleKeys({ blacklist: ["radius"] });
+
     if (!this.options.styleId && this.options.style) {
-      this.info.style = this.options.style
-        ? extractStyling(this.options.style.parameters, keysToExtract)
-        : undefined;
+      this.info.style = extractStyling(
+        this.options.style.parameters,
+        keysToExtract
+      );
       return;
     }
-    if (!this.info.layerInfo || !this.info.layerInfo.styles) {
+    if (!this.info.pathStyles?.length) {
       this.info.style = undefined;
       //TODO: do we want to throw an error here?
       throw new EllipsisVectorLayerBaseError("The layer has no style.");
     }
-
     //Get default or specified style object.
-    const rawStyling = this.info.layerInfo.styles.find(
+    const rawStyling = this.info.pathStyles.find(
       (s) =>
-        s.id === this.options.styleId || (s.isDefault && !this.options.styleId)
+        s.id === this.options.styleId || (s.default && !this.options.styleId)
     );
     this.info.style =
       rawStyling && rawStyling.parameters
@@ -529,7 +543,7 @@ class EllipsisVectorLayerBase {
 
   getReturnType = () => {
     if (this.options.centerPoints) return "center";
-    if (this.info.style.popupProperty) return "all";
+    if (this.info.style?.popupProperty) return "all";
     return "geometry";
   };
 
