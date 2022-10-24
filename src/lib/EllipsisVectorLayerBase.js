@@ -97,7 +97,7 @@ class EllipsisVectorLayerBase {
 
     //Conversion to allow passing style id in style option.
     if (typeof this.options.style === "string") {
-      this.options.styleId = typeof this.options.style;
+      this.options.styleId = this.options.style;
       this.options.style = undefined;
     }
 
@@ -457,8 +457,6 @@ class EllipsisVectorLayerBase {
       token: this.options.token,
     });
 
-    console.log(info);
-
     if (!info?.vector?.timestamps?.length)
       throw new EllipsisVectorLayerBaseError(
         `Specified path "${this.options.pathId}" does not contain any data.`
@@ -470,14 +468,15 @@ class EllipsisVectorLayerBase {
 
     const timestamps = info.vector.timestamps;
     this.info.pathStyles = info.vector.styles;
-    console.log(this.info.pathStyles);
 
-    const defaultTimestamp = timestamps.find(
-      (timestamp) =>
-        !timestamp.trashed &&
-        !timestamp.availability.blocked &&
-        timestamp.status === "active"
-    );
+    const defaultTimestamp = timestamps
+      ?.reverse()
+      .find(
+        (timestamp) =>
+          !timestamp.trashed &&
+          !timestamp.availability.blocked &&
+          timestamp.status === "active"
+      );
 
     //Use default when non layer is specified.
     if (!this.options.timestampId && defaultTimestamp) {
@@ -527,7 +526,6 @@ class EllipsisVectorLayerBase {
     }
     if (!this.info.pathStyles?.length) {
       this.info.style = undefined;
-      //TODO: do we want to throw an error here?
       throw new EllipsisVectorLayerBaseError("The layer has no style.");
     }
     //Get default or specified style object.
