@@ -62,7 +62,6 @@ class EllipsisVectorLayerBase {
   updateView = () => console.error("update view not implemented");
 
   constructor(options = {}) {
-    console.log("constructor called");
     if (!options.pathId) {
       options.pathId = options.blockId || options.mapId;
 
