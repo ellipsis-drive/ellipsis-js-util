@@ -33,8 +33,9 @@ const getSlippyMapUrlWithDefaults = async (options = {}) => {
 
   let timestampId = options.timestampId ?? options.captureId;
   const pathId = options.pathId ?? options.blockId;
+  let zoom = options.maxZoom ?? options.zoom;
 
-  if (!timestampId || !params.style) {
+  if (!timestampId || !params.style || !zoom) {
     const metadata = await EllipsisApi.getPath(pathId);
     if (!metadata)
       throw new EllipsisRasterLayerError(
@@ -64,6 +65,12 @@ const getSlippyMapUrlWithDefaults = async (options = {}) => {
 
       timestampId = defaultTimestamp.id;
     }
+    if (!zoom) {
+      let stamp = metadata.raster.timestamps.find((t) => t.id === timestampId);
+      if (!stamp)
+        throw new EllipsisRasterLayerError("Given timestampId does not exist");
+      zoom = stamp.zoom;
+    }
 
     if (!params.style) {
       const defaultStyle = metadata.raster.styles?.find(
@@ -78,7 +85,8 @@ const getSlippyMapUrlWithDefaults = async (options = {}) => {
   let url = `${EllipsisApi.getApiUrl()}/path/${pathId}/raster/timestamp/${timestampId}/tile/{z}/{x}/{y}${toUrlParams(
     params
   )}`;
-  return url;
+
+  return { zoom, url, id: url + "_" + zoom };
 };
 
 const getLayerId = (options = {}) =>

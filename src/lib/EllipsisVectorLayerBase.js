@@ -163,9 +163,7 @@ class EllipsisVectorLayerBase {
     if (!viewport) return;
 
     const maxZoom =
-      this.options.maxZoom === undefined
-        ? this.info.layerInfo.zoom
-        : this.options.maxZoom;
+      this.options.maxZoom ?? this.options.zoom ?? this.info.layerInfo.zoom;
 
     this.zoom = Math.max(Math.min(maxZoom, viewport.zoom - 2), 0);
     if (this.options.levelOfDetailMode === "dynamic")
