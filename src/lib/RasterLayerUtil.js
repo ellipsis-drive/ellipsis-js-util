@@ -36,7 +36,7 @@ const getSlippyMapUrlWithDefaults = async (options = {}) => {
   let zoom = options.maxZoom ?? options.zoom;
 
   if (!timestampId || !params.style || !zoom) {
-    const metadata = await EllipsisApi.getPath(pathId);
+    const metadata = await EllipsisApi.getPath(pathId, { token: params.token });
     if (!metadata)
       throw new EllipsisRasterLayerError(
         `Could not fetch data of path with id ${pathId}`
