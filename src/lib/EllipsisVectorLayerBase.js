@@ -298,7 +298,6 @@ class EllipsisVectorLayerBase {
       pageStart: this.loadingState.nextPageStart[levelOfDetailSnapshot - 1],
       returnType: this.getReturnType(),
       zipTheResponse: true,
-      pageSize: Math.min(3000, this.options.pageSize),
       styleId: this.options.styleId,
       style: this.options.style,
       levelOfDetail: this.levelOfDetail === 6 ? undefined : this.levelOfDetail,
@@ -539,7 +538,7 @@ class EllipsisVectorLayerBase {
   getReturnType = () => {
     if (this.options.centerPoints) return "center";
     if (this.info.style?.popupProperty) return "all";
-    return "geometry";
+    return "all";
   };
 
   recompileStyles = () => {
