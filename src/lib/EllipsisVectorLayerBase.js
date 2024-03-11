@@ -97,7 +97,6 @@ class EllipsisVectorLayerBase {
       this.options.styleId = this.options.style;
       this.options.style = undefined;
     }
-
     this.id = `${this.options.pathId}_${this.options.timestampId}`;
   }
 
@@ -139,11 +138,10 @@ class EllipsisVectorLayerBase {
       renderTiles = renderTiles.slice(0, this.options.maxRenderTiles);
     }
     this.loadingState.oldTiles = renderTiles;
-    console.log("renderTiles", renderTiles);
 
     const alreadyThere = {};
 
-    const res = renderTiles.flatMap((t) => {
+    let res = renderTiles.flatMap((t) => {
       const featureIdsInTile =
         this.loadingState.featuresInTileCache[this.getTileId(t)]?.featureIds;
 
@@ -183,6 +181,7 @@ class EllipsisVectorLayerBase {
     this.options.debug("update..");
     if (!this.info.layerInfo) {
       this.loadingState.updateLock = true;
+
       await this.fetchLayerInfo();
       this.fetchStylingInfo();
       this.loadingState.updateLock = false;
@@ -355,8 +354,7 @@ class EllipsisVectorLayerBase {
       returnType: this.getReturnType(),
       zipTheResponse: true,
       pageSize: this.options.pageSize,
-      styleId: this.options.styleId,
-      style: this.options.style,
+      style: this.options.styleId,
       propertyFilter:
         this.options.filter && this.options.filter > 0
           ? this.options.filter
@@ -467,33 +465,26 @@ class EllipsisVectorLayerBase {
       this.options.debug(
         `No timestamp ID specified. Picked default ${defaultTimestamp.id}`
       );
-      return;
-    }
-
-    const specifiedTimestamp = timestamps.find(
-      (timestamp) => timestamp.id === this.options.timestampId
-    );
-
-    //Prioritize using the specified layer.
-    if (specifiedTimestamp) {
-      this.info.layerInfo = specifiedTimestamp;
-      return;
-    }
-
-    //Fallback on defaultLayer with warning when specifiedLayer is not valid.
-    if (!specifiedTimestamp && defaultTimestamp) {
-      this.info.layerInfo = defaultTimestamp;
-      this.options.debug(
-        `No correct timestamp ID specified. Picked default ${defaultTimestamp.id}`
+    } else {
+      const specifiedTimestamp = timestamps.find(
+        (timestamp) => timestamp.id === this.options.timestampId
       );
-      return;
+
+      //Prioritize using the specified layer.
+      if (specifiedTimestamp) {
+        this.info.layerInfo = specifiedTimestamp;
+      } else if (!specifiedTimestamp && defaultTimestamp) {
+        this.info.layerInfo = defaultTimestamp;
+        this.options.debug(
+          `No correct timestamp ID specified. Picked default ${defaultTimestamp.id}`
+        );
+      } else if (!specifiedTimestamp && !defaultTimestamp)
+        throw new EllipsisVectorLayerBaseError(
+          `Specified timestamp with id=${this.options.timestampId} does not exist and the path has no default timestamp to use as a fallback.`
+        );
     }
 
-    //Throw error when no layer is found to stop any execution with wrong parameters.
-    if (!specifiedTimestamp && !defaultTimestamp)
-      throw new EllipsisVectorLayerBaseError(
-        `Specified timestamp with id=${this.options.timestampId} does not exist and the path has no default timestamp to use as a fallback.`
-      );
+    return;
   };
 
   //Reads relevant styling info from state.layerInfo. Sets this in state.styleInfo.
