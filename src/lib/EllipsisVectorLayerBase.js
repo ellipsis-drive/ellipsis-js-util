@@ -322,8 +322,6 @@ class EllipsisVectorLayerBase {
         if (!this.loadingState.featuresInTileCache[tileId])
           return {
             tileId: t,
-            levelOfDetail:
-              levelOfDetailSnapshot === 6 ? undefined : levelOfDetailSnapshot,
           };
 
         const pageStart =
@@ -340,8 +338,6 @@ class EllipsisVectorLayerBase {
           return {
             tileId: t,
             pageStart,
-            levelOfDetail:
-              levelOfDetailSnapshot === 6 ? undefined : levelOfDetailSnapshot,
           };
 
         return null;
