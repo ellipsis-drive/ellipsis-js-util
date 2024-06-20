@@ -23,17 +23,13 @@ const getSlippyMapUrl = (options = {}) => {
 const getSlippyMapUrlWithDefaults = async (options = {}) => {
   const params = {
     token: options.token,
-    style:
-      options.style ??
-      options.layer ??
-      options.visualizationId ??
-      options.visualization,
+    style: options.style,
     mask: options.mask,
   };
 
-  let timestampId = options.timestampId ?? options.captureId;
-  const pathId = options.pathId ?? options.blockId;
-  let zoom = options.maxZoom ?? options.zoom;
+  let timestampId = options.timestampId;
+  const pathId = options.pathId;
+  let zoom = options.zoom;
 
   if (!timestampId || !params.style || !zoom) {
     const metadata = await EllipsisApi.getPath(pathId, { token: params.token });
@@ -92,10 +88,6 @@ const getSlippyMapUrlWithDefaults = async (options = {}) => {
 const getLayerId = (options = {}) =>
   `${options.pathId ?? options.blockId}_${
     options.timestampId ?? options.captureId
-  }_${encodeURIComponent(
-    JSON.stringify(
-      options.style ?? options.visualizationId ?? options.visualization
-    )
-  )}`;
+  }_${encodeURIComponent(JSON.stringify(options.style))}`;
 
 export { getSlippyMapUrl, getLayerId, getSlippyMapUrlWithDefaults };

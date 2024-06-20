@@ -1,11 +1,6 @@
 import EllipsisApi from "./EllipsisApi";
 import EllipsisVectorLayerBaseError from "./EllipsisVectorLayerError";
-import {
-  getFeatureStyling,
-  extractStyling,
-  getStyleKeys,
-  getVectorLayerColor,
-} from "./VectorLayerUtil";
+import { getFeatureStyling, getVectorLayerColor } from "./VectorLayerUtil";
 
 class EllipsisVectorLayerBase {
   static defaultOptions = {
@@ -89,10 +84,7 @@ class EllipsisVectorLayerBase {
     Object.keys(options).forEach((x) => (this.options[x] = options[x]));
 
     //Conversion to allow passing style id in style option.
-    if (typeof this.options.style === "string") {
-      this.options.styleId = this.options.style;
-      this.options.style = undefined;
-    }
+
     this.id = `${this.options.pathId}_${this.options.timestampId}`;
   }
 
@@ -175,7 +167,6 @@ class EllipsisVectorLayerBase {
       this.loadingState.updateLock = true;
 
       await this.fetchLayerInfo();
-      this.fetchStylingInfo();
       this.loadingState.updateLock = false;
       this.options.debug("fetched layer info:");
       this.options.debug(this.info.layerInfo);
@@ -343,6 +334,19 @@ class EllipsisVectorLayerBase {
     return nextPageStart;
   };
 
+  getStyle = () => {
+    const st = !this.options.style
+      ? this.info.pathStyles.find((s) => s.default)
+      : typeof this.options.style === "string"
+      ? this.info.pathStyles.find((x) => x.id === this.options.style)
+      : this.options.style;
+
+    if (!st) {
+      throw new EllipsisVectorLayerBaseError("Given style not found");
+    }
+    return st;
+  };
+
   requestTileGeoJsons = async () => {
     const date = Date.now();
 
@@ -383,7 +387,7 @@ class EllipsisVectorLayerBase {
     const body = {
       zipTheResponse: true,
       pageSize: this.options.pageSize,
-      style: this.options.styleId,
+      style: this.options.style,
       propertyFilter:
         this.options.filter && this.options.filter > 0
           ? this.options.filter
@@ -408,11 +412,7 @@ class EllipsisVectorLayerBase {
             ? { featureId: res.nextPageStart }
             : null;
 
-          const st = !this.options.styleId
-            ? this.info.pathStyles.find((s) => s.default)
-            : typeof this.options.styleId === "string"
-            ? this.info.pathStyles.find((x) => x.id === x)
-            : this.options.styleId;
+          const st = this.getStyle();
 
           res.result.features = res.result.features.map((f) => {
             f.properties.color = getVectorLayerColor(f.properties, st);
@@ -532,44 +532,17 @@ class EllipsisVectorLayerBase {
     return;
   };
 
-  //Reads relevant styling info from state.layerInfo. Sets this in state.styleInfo.
-  fetchStylingInfo = () => {
-    const keysToExtract = getStyleKeys({ blacklist: ["radius"] });
-
-    if (!this.options.styleId && this.options.style) {
-      this.info.style = extractStyling(
-        this.options.style.parameters,
-        keysToExtract
-      );
-      return;
-    }
-    if (!this.info.pathStyles?.length) {
-      this.info.style = undefined;
-      throw new EllipsisVectorLayerBaseError("The layer has no style.");
-    }
-    //Get default or specified style object.
-    const rawStyling = this.info.pathStyles.find(
-      (s) =>
-        s.id === this.options.styleId || (s.default && !this.options.styleId)
-    );
-    this.info.style =
-      rawStyling && rawStyling.parameters
-        ? extractStyling(rawStyling.parameters, keysToExtract)
-        : undefined;
-  };
-
   recompileStyles = () => {
     this.getFeatures().forEach((x) => this.compileStyle(x));
   };
 
   compileStyle = (feature) => {
+    const st = this.getStyle();
     let compiledStyle = getFeatureStyling(
       feature,
-      this.info.style,
-      this.options
+      st,
+      this.loadOptions.styleKeys
     );
-    compiledStyle = extractStyling(compiledStyle, this.loadOptions.styleKeys);
-    if (!feature.properties) feature.properties = {};
     feature.properties.compiledStyle = compiledStyle;
   };
 

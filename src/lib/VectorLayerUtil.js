@@ -2,36 +2,6 @@ import EllipsisVectorLayerBase from "./EllipsisVectorLayerBase";
 import { mergeObjects } from "./Util";
 import { evaluate } from "mathjs";
 
-const defaultStyle = {
-  radius: 6,
-  width: 2,
-  borderColor: "#000000",
-  borderOpacity: 1,
-  fillColor: "#000000",
-  fillOpacity: 0.5,
-};
-
-//Map style keys to possible aliases
-const styleKeys = {
-  radius: [],
-  width: ["lineWidth", "weight"],
-  borderColor: [],
-  borderOpacity: [],
-  fillColor: ["color"],
-  fillOpacity: ["opacity"],
-  popupProperty: [],
-};
-
-const getStyleKeys = (filters = { blacklist: [] }) => {
-  return Object.fromEntries(
-    Object.entries(styleKeys).filter(([key]) => {
-      if (filters.blacklist.includes(key)) return false;
-      if (filters.whitelist && !filters.whitelist.includes(key)) return false;
-      return true;
-    })
-  );
-};
-
 const parseHex = (color, toRGB) => {
   if (!color) return;
 
@@ -51,23 +21,6 @@ const parseHex = (color, toRGB) => {
   };
 };
 
-//Finds styling info based on styleKeysInfo. It'll return all style info with the style
-//keys described in styleKeysInfo.
-const extractStyling = (obj = {}, styleKeysInfo = styleKeys) => {
-  const styling = {};
-  Object.entries(obj).forEach(([key, value]) => {
-    const standardStylingEntries = Object.entries(styleKeysInfo).filter(
-      ([styleKey, styleAliases]) => {
-        return styleKey === key || (styleAliases && styleAliases.includes(key));
-      }
-    );
-    if (standardStylingEntries && standardStylingEntries.length) {
-      standardStylingEntries.forEach(([k]) => (styling[k] = value));
-    }
-  });
-  return styling;
-};
-
 /**
  * Parses hex color values from feature to create an object that has all styling
  * parameters merged, which does include default stylings.
@@ -79,56 +32,21 @@ const extractStyling = (obj = {}, styleKeysInfo = styleKeys) => {
  * @param {*} stylingOptions
  * @returns {*}
  */
-const getFeatureStyling = (feature, ...stylingSources) => {
-  //Extract style info from feature.properties, getinfo.style and stylingOptions.
-  const propertyStyle =
-    feature && feature.properties
-      ? extractStyling(feature.properties)
-      : undefined;
+const getFeatureStyling = (feature, style) => {
+  const stylingProperties = {
+    radius:
+      style.parameters.radius.parameters.value ??
+      style.parameters.radius.parameters.weight,
+    weight: style.parameters.width,
+    opacity: 1,
+    fillColor: parseHex(feature.properties.color).color,
+    fillOpacity: style.parameters.alpha,
+    color: parseHex(style.parameters.borderColor ?? feature.properties.color)
+      .color,
+    popupProperty: style.parameters.popupProperty,
+  };
 
-  //Rightmost value will take precidence over values to the left in merge.
-  let combinedStyles = mergeObjects(
-    propertyStyle,
-    ...stylingSources.map((x) => (x ? extractStyling(x) : undefined))
-  );
-
-  //Split hex values in opacity and hex value if possible.
-  let parsedBorderColor = parseHex(combinedStyles.borderColor);
-  let parsedFillColor = parseHex(combinedStyles.fillColor);
-
-  //If no fill color present, take color from border.
-  if (parsedBorderColor && !parsedFillColor) {
-    parsedFillColor = { ...parsedBorderColor };
-    parsedBorderColor.opacity = 1;
-  }
-
-  //If no border color present, take color from fill.
-  if (!parsedBorderColor && parsedFillColor) {
-    parsedBorderColor = { ...parsedFillColor };
-    parsedBorderColor.opacity = 1;
-  }
-
-  //If we parsed colors, combine the results
-  if (parsedBorderColor) {
-    //Merge priority:
-    //1) parsed colors,
-    //2) opacities found in style,
-    //3) parsed opacities
-    combinedStyles = mergeObjects(
-      {
-        fillOpacity: parsedFillColor.opacity,
-        borderOpacity: parsedBorderColor.opacity,
-      },
-      combinedStyles,
-      {
-        fillColor: parsedFillColor.color,
-        borderColor: parsedBorderColor.color,
-      }
-    );
-  }
-
-  //Ensure the default values for all values that are not set in combined styles.
-  return mergeObjects(defaultStyle, combinedStyles);
+  return stylingProperties;
 };
 
 function rgbComponentToHex(rgbComp) {
@@ -231,7 +149,6 @@ function getVectorLayerColor(properties, style) {
       for (let i = 0; i < propertyValues.length; i++) {
         evaluationProperties[`property${i + 1}`] = propertyValues[i];
       }
-      console.log("evaluating", style.parameters.formula, evaluationProperties);
 
       let propertyValue = evaluate(
         style.parameters.formula,
@@ -284,7 +201,7 @@ function getVectorLayerColor(properties, style) {
         }
       }
       color = color + alphaToHex(style.parameters.alpha);
-      console.log("color", color);
+
       break;
     }
     case STYLE_METHOD.rules: {
@@ -453,10 +370,7 @@ function getVectorLayerColor(properties, style) {
 
 export {
   EllipsisVectorLayerBase,
-  defaultStyle,
   getFeatureStyling,
   getVectorLayerColor,
   parseHex,
-  extractStyling,
-  getStyleKeys,
 };
