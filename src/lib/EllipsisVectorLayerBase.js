@@ -335,12 +335,13 @@ class EllipsisVectorLayerBase {
   };
 
   getStyle = () => {
+    console.log("here", this.info.pathStyles, this.options.style);
     const st = !this.options.style
       ? this.info.pathStyles.find((s) => s.default)
       : typeof this.options.style === "string"
       ? this.info.pathStyles.find((x) => x.id === this.options.style)
       : this.options.style;
-
+    console.log("FOUND", st, this.info.pathStyles);
     if (!st) {
       throw new EllipsisVectorLayerBaseError("Given style not found");
     }
@@ -482,7 +483,7 @@ class EllipsisVectorLayerBase {
     const info = await EllipsisApi.getPath(this.options.pathId, {
       token: this.options.token,
     });
-
+    console.log("info", info);
     if (!info?.vector?.timestamps?.length)
       throw new EllipsisVectorLayerBaseError(
         `Specified path "${this.options.pathId}" does not contain any data.`
@@ -494,7 +495,7 @@ class EllipsisVectorLayerBase {
 
     const timestamps = info.vector.timestamps;
     this.info.pathStyles = info.vector.styles;
-
+    console.log(this.info.pathStyles);
     const defaultTimestamp = timestamps
       ?.reverse()
       .find(
@@ -538,11 +539,7 @@ class EllipsisVectorLayerBase {
 
   compileStyle = (feature) => {
     const st = this.getStyle();
-    let compiledStyle = getFeatureStyling(
-      feature,
-      st,
-      this.loadOptions.styleKeys
-    );
+    let compiledStyle = getFeatureStyling(feature, st);
     feature.properties.compiledStyle = compiledStyle;
   };
 

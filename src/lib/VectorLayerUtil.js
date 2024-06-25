@@ -33,6 +33,7 @@ const parseHex = (color, toRGB) => {
  * @returns {*}
  */
 const getFeatureStyling = (feature, style) => {
+  console.log("style", style);
   const stylingProperties = {
     radius:
       style.parameters.radius.parameters.value ??
