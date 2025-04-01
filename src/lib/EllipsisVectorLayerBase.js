@@ -206,7 +206,6 @@ class EllipsisVectorLayerBase {
 
     this.options.debug("load");
     this.loadingState.isLoading = true;
-
     const cachedSomething = await this.requestTileGeoJsons();
 
     this.loadingState.isLoading = false;
@@ -335,13 +334,12 @@ class EllipsisVectorLayerBase {
   };
 
   getStyle = () => {
-    console.log("here", this.info.pathStyles, this.options.style);
     const st = !this.options.style
       ? this.info.pathStyles.find((s) => s.default)
       : typeof this.options.style === "string"
       ? this.info.pathStyles.find((x) => x.id === this.options.style)
       : this.options.style;
-    console.log("FOUND", st, this.info.pathStyles);
+
     if (!st) {
       throw new EllipsisVectorLayerBaseError("Given style not found");
     }
@@ -394,6 +392,7 @@ class EllipsisVectorLayerBase {
           ? this.options.filter
           : null,
     };
+    const st = this.getStyle();
 
     //Get new geometry for the tiles
     let result = [];
@@ -412,8 +411,6 @@ class EllipsisVectorLayerBase {
           res.nextPageStart = res.nextPageStart
             ? { featureId: res.nextPageStart }
             : null;
-
-          const st = this.getStyle();
 
           res.result.features = res.result.features.map((f) => {
             f.properties.color = getVectorLayerColor(f.properties, st);
@@ -448,6 +445,17 @@ class EllipsisVectorLayerBase {
         };
       }
 
+      if (this.options.manipulateCoords) {
+        result[j].result.features = result[j].result.features.map((f) =>
+          this.options.manipulateCoords(f)
+        );
+      }
+
+      result[j].result.features = result[j].result.features.map((f) => {
+        f.properties.color = getVectorLayerColor(f.properties, st);
+        return f;
+      });
+
       // Update tile cache with new feature ids etc.
       const tileData = this.loadingState.featuresInTileCache[tileId];
       tileData.date = date;
@@ -455,12 +463,14 @@ class EllipsisVectorLayerBase {
       tileData.amount = tileData.amount + result[j].result.features.length;
       tileData.nextPageStart = result[j].nextPageStart;
       tileData.done = !result[j].nextPageStart;
+
       if (result[j].result.features) {
         result[j].result.features.forEach((x) => {
           this.compileStyle(x);
           if (this.loadOptions.onEachFeature) this.loadOptions.onEachFeature(x);
         });
       }
+
       tileData.featureIds.push(
         ...result[j].result.features.map((feature) => feature.properties.id)
       );
@@ -475,6 +485,7 @@ class EllipsisVectorLayerBase {
         }
       });
     }
+
     return true;
   };
 
@@ -483,7 +494,7 @@ class EllipsisVectorLayerBase {
     const info = await EllipsisApi.getPath(this.options.pathId, {
       token: this.options.token,
     });
-    console.log("info", info);
+
     if (!info?.vector?.timestamps?.length)
       throw new EllipsisVectorLayerBaseError(
         `Specified path "${this.options.pathId}" does not contain any data.`
@@ -495,7 +506,7 @@ class EllipsisVectorLayerBase {
 
     const timestamps = info.vector.timestamps;
     this.info.pathStyles = info.vector.styles;
-    console.log(this.info.pathStyles);
+
     const defaultTimestamp = timestamps
       ?.reverse()
       .find(
@@ -539,7 +550,7 @@ class EllipsisVectorLayerBase {
 
   compileStyle = (feature) => {
     const st = this.getStyle();
-    let compiledStyle = getFeatureStyling(feature, st);
+    let compiledStyle = getFeatureStyling(feature, st, feature.properties);
     feature.properties.compiledStyle = compiledStyle;
   };
 

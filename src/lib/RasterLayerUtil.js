@@ -10,6 +10,7 @@ const getSlippyMapUrl = (options = {}) => {
       options.visualizationId ??
       options.visualization,
     mask: options.mask,
+    epsg: options.epsg,
   });
 
   let url = `${EllipsisApi.getApiUrl()}/path/${
@@ -76,6 +77,10 @@ const getSlippyMapUrlWithDefaults = async (options = {}) => {
         throw new EllipsisRasterLayerError("No default style found");
       params.style = defaultStyle.id;
     }
+  }
+
+  if (options.epsg) {
+    params.epsg = options.epsg;
   }
 
   let url = `${EllipsisApi.getApiUrl()}/path/${pathId}/raster/timestamp/${timestampId}/tile/{z}/{x}/{y}${toUrlParams(

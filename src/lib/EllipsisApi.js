@@ -16,6 +16,7 @@ function toUrlParams(jsonParams, noPrefix = false) {
       jsonParams[key] = JSON.stringify(val);
     if (val == undefined) delete jsonParams[key];
   });
+
   const params = new URLSearchParams(jsonParams).toString();
   if (noPrefix) return params;
   return params === "" ? "" : "?" + params;

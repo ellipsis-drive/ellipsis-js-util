@@ -1,6 +1,25 @@
 import EllipsisVectorLayerBase from "./EllipsisVectorLayerBase";
-import { mergeObjects } from "./Util";
-import { evaluate } from "mathjs";
+
+import { create, all } from "mathjs";
+import { SHA256, enc } from "crypto-js";
+
+const math = create(all);
+math.import(
+  {
+    equal: function (a, b) {
+      return a === b;
+    },
+  },
+  { override: true }
+);
+math.import(
+  {
+    unequal: function (a, b) {
+      return a !== b;
+    },
+  },
+  { override: true }
+);
 
 const parseHex = (color, toRGB) => {
   if (!color) return;
@@ -32,21 +51,19 @@ const parseHex = (color, toRGB) => {
  * @param {*} stylingOptions
  * @returns {*}
  */
-const getFeatureStyling = (feature, style) => {
-  console.log("style", style);
+const getFeatureStyling = (feature, style, properties) => {
+  getVectorLayerColor(properties, style, "radius");
+  getVectorLayerColor(properties, style, "width");
+  parseHex(feature.properties.color).color;
   const stylingProperties = {
-    radius:
-      style.parameters.radius.parameters.value ??
-      style.parameters.radius.parameters.weight,
-    weight: style.parameters.width,
+    radius: getVectorLayerColor(properties, style, "radius"),
+    weight: getVectorLayerColor(properties, style, "width"),
     opacity: 1,
     fillColor: parseHex(feature.properties.color).color,
     fillOpacity: style.parameters.alpha,
-    color: parseHex(style.parameters.borderColor ?? feature.properties.color)
-      .color,
-    popupProperty: style.parameters.popupProperty,
+    color: parseHex(feature.properties.color).color,
+    popupProperty: style.parameters.popupProperty?.text,
   };
-
   return stylingProperties;
 };
 
@@ -125,248 +142,378 @@ const STYLE_METHOD = {
   fromColorProperty: "fromColorProperty",
   classToColor: "classToColor",
   formula: "formula",
+  v2: "v2",
 };
 
-function getVectorLayerColor(properties, style) {
+function getVectorLayerColorNew(properties, style, ktype) {
   let color;
 
-  switch (style.method) {
-    case STYLE_METHOD.formula: {
-      let propertyNames = style.parameters.properties;
-
-      let propertyValues = [];
-      for (let i = 0; i < propertyNames.length; i++) {
-        propertyValues.push(properties[propertyNames[i]]);
-      }
-
-      if (
-        propertyValues.filter((x) => x === null || x === undefined).length > 0
-      ) {
-        color = style.parameters.defaultColor;
-        break;
-      }
-
-      let evaluationProperties = {};
-      for (let i = 0; i < propertyValues.length; i++) {
-        evaluationProperties[`property${i + 1}`] = propertyValues[i];
-      }
-
-      let propertyValue = evaluate(
-        style.parameters.formula,
-        evaluationProperties
-      );
-
-      let transitionPoints = style.parameters.transitionPoints;
-
-      if (style.parameters.periodic) {
-        propertyValue = propertyValue % style.parameters.periodic;
-      }
-
-      let values = style.parameters.transitionPoints.map((x) => x.value);
-
-      if (propertyValue <= values[0]) {
-        color = transitionPoints[0].color;
-      } else if (propertyValue >= values[values.length - 1]) {
-        color = transitionPoints[values.length - 1].color;
-      } else {
-        let lowerPoint;
-        let higherPoint;
-
-        for (let i = 1; i < values.length; i++) {
-          if (propertyValue < values[i]) {
-            lowerPoint = transitionPoints[i - 1];
-            higherPoint = transitionPoints[i];
-            break;
-          }
-        }
-
-        if (style.parameters.continuous) {
-          let fraction =
-            (propertyValue - lowerPoint.value) /
-            (higherPoint.value - lowerPoint.value);
-          let red = rgbComponentToHex(
-            fraction * parseInt(higherPoint.color.substring(1, 3), 16) +
-              (1 - fraction) * parseInt(lowerPoint.color.substring(1, 3), 16)
-          );
-          let blue = rgbComponentToHex(
-            fraction * parseInt(higherPoint.color.substring(3, 5), 16) +
-              (1 - fraction) * parseInt(lowerPoint.color.substring(3, 5), 16)
-          );
-          let green = rgbComponentToHex(
-            fraction * parseInt(higherPoint.color.substring(5, 7), 16) +
-              (1 - fraction) * parseInt(lowerPoint.color.substring(5, 7), 16)
-          );
-          color = "#" + red + blue + green;
-        } else {
-          color = lowerPoint.color;
-        }
-      }
-      color = color + alphaToHex(style.parameters.alpha);
-
+  const params = style.parameters[ktype];
+  switch (params.type) {
+    case "constant": {
+      color = params.target[params.target.type];
       break;
     }
-    case STYLE_METHOD.rules: {
-      color = style.parameters.defaultColor;
-      for (let i = 0; i < style.parameters.rules.length; i++) {
-        let rule = style.parameters.rules[i];
-
-        let propertyValue = property ? properties[rule.property] : undefined;
-        let match = false;
-
-        if (propertyValue === undefined || propertyValue === null) {
-          break;
-        }
-
-        // eslint-disable-next-line default-case
-        switch (rule.operator) {
-          case "=":
-            match = propertyValue === rule.value;
-            break;
-          case "!=":
-            match = propertyValue !== rule.value;
-            break;
-          case ">":
-            match = propertyValue > rule.value;
-            break;
-          case "<":
-            match = propertyValue < rule.value;
-            break;
-          case ">=":
-            match = propertyValue >= rule.value;
-            break;
-          case "<=":
-            match = propertyValue <= rule.value;
-            break;
-        }
-
-        if (match) {
-          color = rule.color;
-          break;
-        }
-      }
-
-      color = color + alphaToHex(style.parameters.alpha);
-      break;
-    }
-    case STYLE_METHOD.classToColor: {
-      color = style.parameters.defaultColor;
-
-      let propertyValue = properties[style.parameters.property];
-      let c;
-      if (propertyValue) {
-        c = style.parameters.colorMapping.find(
-          (x) => x.value === propertyValue
-        )?.color;
-      }
-
-      if (c) {
-        color = c;
-      }
-
-      color = color + alphaToHex(style.parameters.alpha);
-      break;
-    }
-    case STYLE_METHOD.transitionPoints: {
-      let propertyValue = properties[style.parameters.property];
-
-      let transitionPoints = style.parameters.transitionPoints;
-
-      if (
-        style.parameters.periodic &&
-        propertyValue !== undefined &&
-        propertyValue !== null
-      ) {
-        propertyValue = propertyValue % style.parameters.periodic;
-      }
-
-      let values = style.parameters.transitionPoints.map((x) => x.value);
-
-      if (propertyValue === undefined || propertyValue === null) {
-        color = style.parameters.defaultColor;
-      } else if (propertyValue <= values[0]) {
-        color = transitionPoints[0].color;
-      } else if (propertyValue >= values[values.length - 1]) {
-        color = transitionPoints[values.length - 1].color;
-      } else {
-        let lowerPoint;
-        let higherPoint;
-
-        for (let i = 1; i < values.length; i++) {
-          if (propertyValue < values[i]) {
-            lowerPoint = transitionPoints[i - 1];
-            higherPoint = transitionPoints[i];
-            break;
-          }
-        }
-
-        if (style.parameters.continuous) {
-          let fraction =
-            (propertyValue - lowerPoint.value) /
-            (higherPoint.value - lowerPoint.value);
-          let red = rgbComponentToHex(
-            fraction * parseInt(higherPoint.color.substring(1, 3), 16) +
-              (1 - fraction) * parseInt(lowerPoint.color.substring(1, 3), 16)
-          );
-          let blue = rgbComponentToHex(
-            fraction * parseInt(higherPoint.color.substring(3, 5), 16) +
-              (1 - fraction) * parseInt(lowerPoint.color.substring(3, 5), 16)
-          );
-          let green = rgbComponentToHex(
-            fraction * parseInt(higherPoint.color.substring(5, 7), 16) +
-              (1 - fraction) * parseInt(lowerPoint.color.substring(5, 7), 16)
-          );
-          color = "#" + red + blue + green;
-        } else {
-          color = lowerPoint.color;
-        }
-      }
-
-      color = color + alphaToHex(style.parameters.alpha);
-      break;
-    }
-    case STYLE_METHOD.random: {
-      let propertyValue;
-      if (style.parameters.property) {
-        propertyValue = properties[style.parameters.property];
-      } else {
-        propertyValue = properties.id;
-      }
-
-      if (propertyValue === undefined || propertyValue === null) {
-        propertyValue = "ellipsis_missing_value"; // use this string if value is missing, can be changed to any string with unlikely collision
-      }
-
-      let originalHex = crypto
-        .createHash("sha256")
-        .update(propertyValue.toString())
-        .digest("hex")
-        .substr(-6);
+    case "seededRandom": {
+      let value = evaluateExpression(params.expressionObject, properties);
+      value = value ?? "";
+      let originalHex = SHA256(value.toString()).toString(enc.Hex).substr(-6);
       color =
         "#" +
         rgbHexConversion(originalHex) +
         alphaToHex(style.parameters.alpha);
-      break;
-    }
-    case STYLE_METHOD.singleColor: {
-      color = style.parameters.color + alphaToHex(style.parameters.alpha);
-      break;
-    }
-    case STYLE_METHOD.fromColorProperty: {
-      color = style.parameters.defaultColor;
 
-      if (properties.color) {
-        color = properties.color.substring(0, 7);
+      break;
+    }
+
+    case "caseMap": {
+      for (let i = 0; i < params.caseMap.length; i++) {
+        const c = params.caseMap[i];
+        const value = evaluateExpression(c.expressionObject, properties);
+        if (value) {
+          color = c.target[c.target.type];
+          break;
+        }
       }
-
-      color = color + alphaToHex(style.parameters.alpha);
+      if (!color) {
+        color = params.defaultTarget[params.defaultTarget.type];
+      }
+      break;
+    }
+    case "rangeMap": {
+      const value = evaluateExpression(params.expressionObject, properties);
+      for (let i = 0; i < params.rangeMap.length; i++) {
+        const t = params.rangeMap[i];
+        if (value <= t.value) {
+          color = t.target[t.target.type];
+          break;
+        }
+      }
+      if (!color) {
+        color = params.defaultTarget[params.defaultTarget.type];
+      }
+      break;
+    }
+    case "valueMap": {
+      const value = evaluateExpression(params.expressionObject, properties);
+      for (let i = 0; i < params.valueMap.length; i++) {
+        const t = params.valueMap[i];
+        if (value === t.value) {
+          color = t.target[t.target.type];
+          break;
+        }
+      }
+      if (!color) {
+        color = params.defaultTarget[params.defaultTarget.type];
+      }
+      break;
+    }
+    case "expression": {
+      color = evaluateExpression(params.expressionObject, properties);
       break;
     }
     default: {
-      throw Error(`Received invalid method in getLayerColor: ${style.method}`);
+      throw Error(`Received invalid fill type in style.parameters.fill.type`);
     }
   }
 
+  if (!color) {
+    if (ktype === "color") {
+      return "#000000";
+    } else if (ktype === "width") {
+      return 5;
+    } else {
+      return 10;
+    }
+  }
   return color;
+}
+
+function evaluateExpression(expressionObject, properties) {
+  let evaluationProperties = {};
+  if (expressionObject.properties) {
+    let propertyNames = expressionObject.properties;
+
+    const propertyValues = [];
+    for (let i = 0; i < propertyNames.length; i++) {
+      let propertyValue = properties[propertyNames[i]];
+
+      propertyValues.push(propertyValue);
+    }
+
+    for (let i = 0; i < propertyValues.length; i++) {
+      evaluationProperties[`property${i + 1}`] = propertyValues[i];
+    }
+  }
+
+  if (expressionObject.values) {
+    const propertyValues = expressionObject.values;
+    for (let i = 0; i < propertyValues.length; i++) {
+      evaluationProperties[`value${i + 1}`] = propertyValues[i];
+    }
+  }
+
+  const expression = expressionObject.expression;
+  let evaluation;
+
+  try {
+    evaluation = math.evaluate(expression, evaluationProperties);
+  } catch {
+    evaluation = null;
+  }
+  return evaluation;
+}
+
+function convertVectorStyle(style) {
+  if (style.method === "v2") {
+    return style;
+  }
+
+  style.parameters.alphaMultiplier = style.parameters.alpha;
+  delete style.parameters.alpha;
+
+  if (style.parameters.borderColor) {
+    style.parameters.borderColor = {
+      type: "constant",
+      target: { type: "color", color: style.parameters.borderColor },
+    };
+  }
+
+  if (style.parameters.altitude) {
+    style.parameters.elevation = {
+      type: "expression",
+      defaultTarget: { type: "number", number: 0 },
+      expressionObject: {
+        properties: [style.parameters.altitude.property],
+        values: [],
+        expression: "property1",
+      },
+    };
+    delete style.parameters.altitude;
+  }
+
+  style.parameters.width = {
+    type: "constant",
+    target: { type: "number", number: style.parameters.width },
+  };
+
+  if (style.parameters.radius?.method === "onProperty") {
+    style.parameters.radius = {
+      type: "expression",
+      defaultTarget: { type: "number", number: 10 },
+      expressionObject: {
+        properties: [style.parameters.radius.parameters.property],
+        values: [],
+        expression: "property1",
+      },
+    };
+  } else {
+    style.parameters.radius = {
+      type: "expression",
+      defaultTarget: {
+        type: "number",
+        number: style.parameters.radius.parameters.value,
+      },
+      expressionObject: {
+        properties: [],
+        values: [],
+        expression: style.parameters.radius.parameters.value.toString(),
+      },
+    };
+  }
+
+  if (style.parameters.popupProperty) {
+    const textColor = style.parameters.textColor ?? `#000000`;
+    style.parameters.popOver = {
+      color: { type: "constant", target: { type: "color", color: textColor } },
+      text: {
+        type: "expression",
+        defaultTarget: { type: "string", string: "" },
+        expressionObject: {
+          properties: [style.parameters.popupProperty],
+          values: [],
+          expression: "property1",
+        },
+      },
+    };
+    delete style.parameters.popupProperty;
+  }
+  //now the fill
+
+  let defaultTarget;
+  if (style.parameters.defaultColor) {
+    defaultTarget = { type: "color", color: style.parameters.defaultColor };
+    delete style.parameters.defaultColor;
+  }
+
+  if (style.parameters.icon) {
+    defaultTarget = { type: "icon", icon: style.parameters.defaultIcon };
+    delete style.parameters.defaultIcon;
+  }
+  if (style.parameters.pattern) {
+    defaultTarget = { type: "pattern", pattern: style.parameters.pattern };
+    delete style.parameters.defaultPattern;
+  }
+
+  const fetchTarget = (rule) => {
+    let target;
+    if (rule.color) {
+      target = { type: "color", color: rule.color };
+    } else if (rule.pattern) {
+      target = { type: "pattern", pattern: rule.pattern };
+    } else if (rule.icon) {
+      target = { type: "icon", icon: rule.icon };
+    }
+    return target;
+  };
+
+  if (style.method === "singleColor") {
+    if (style.parameters.color) {
+      style.parameters.fill = {
+        type: "constant",
+        target: { type: "color", color: style.parameters.color },
+      };
+      delete style.parameters.color;
+    }
+
+    if (style.parameters.pattern) {
+      style.parameters.fill = {
+        type: "constant",
+        target: { type: "pattern", color: style.parameters.pattern },
+      };
+      delete style.parameters.pattern;
+    }
+    if (style.parameters.icon) {
+      style.parameters.fill = {
+        type: "constant",
+        target: { type: "icon", color: style.parameters.icon },
+      };
+      delete style.parameters.icon;
+    }
+  } else if (style.method === "fromColorProperty") {
+    delete style.parameters.defaultColor;
+
+    style.parameters.fill = {
+      type: "expression",
+      defaultTarget: defaultTarget,
+      expressionObject: {
+        properties: ["color"],
+        values: [],
+        expression: "property1",
+      },
+    };
+  } else if (style.method === "rules") {
+    const caseMap = style.parameters.rules.map((rule) => {
+      const target = fetchTarget(rule);
+      if (rule.operator === "=") {
+        rule.operator = "==";
+      }
+      const expression = `property1 ${rule.operator} ${rule.value}`;
+      return {
+        target: target,
+        expressionObject: {
+          properties: [rule.property],
+          values: [],
+          expression: expression,
+        },
+      };
+    });
+
+    delete style.parameters.rules;
+    style.parameters.fill = {
+      type: "caseMap",
+      defaultTarget: defaultTarget,
+      caseMap: caseMap,
+    };
+  } else if (style.method === "random") {
+    style.parameters.fill = {
+      type: "randomSeed",
+      expressionObject: {
+        properties: [style.parameters.property],
+        values: [],
+        expression: "property1",
+      },
+    };
+    delete style.parameters.property;
+  } else if (style.method === "transitionPoints") {
+    const rangeMap = style.parameters.transitionPoints.map((point) => {
+      const target = fetchTarget(point);
+      return {
+        value: point.value,
+        target: target,
+      };
+    });
+    style.parameters.fill = {
+      type: "rangeMap",
+      gradient: style.parameters.continuous,
+      expressionObject: {
+        properties: [style.parameters.property],
+        values: [],
+        expression: "property1",
+      },
+      defaultTarget: defaultTarget,
+      rangeMap: rangeMap,
+    };
+
+    delete style.parameters.continuous;
+    delete style.parameters.property;
+    delete style.parameters.transitionPoints;
+  } else if (style.method === "classToColor") {
+    const valueMap = style.parameters.colorMapping.map((point) => {
+      const target = fetchTarget(point);
+      return {
+        value: point.value,
+        target: target,
+      };
+    });
+    style.parameters.fill = {
+      type: "valueMap",
+      expressionObject: {
+        properties: [style.parameters.property],
+        values: [],
+        expression: "property1",
+      },
+      defaultTarget: defaultTarget,
+      valueMap: valueMap,
+    };
+
+    delete style.parameters.property;
+    delete style.parameters.colorMapping;
+  } else if (style.method === "formula") {
+    const rangeMap = style.parameters.transitionPoints.map((point) => {
+      const target = fetchTarget(point);
+      return {
+        value: point.value,
+        target: target,
+      };
+    });
+
+    style.parameters.fill = {
+      type: "rangeMap",
+      gradient: style.parameters.continuous,
+      expressionObject: {
+        properties: style.parameters.properties,
+        values: [],
+        expression: style.parameters.formula,
+      },
+      defaultTarget: defaultTarget,
+      rangeMap: rangeMap,
+    };
+    delete style.parameters.properties;
+    delete style.parameters.formula;
+    delete style.parameters.continuous;
+    delete style.parameters.transitionPoints;
+  }
+
+  style.method = "v2";
+  return style;
+}
+
+function getVectorLayerColor(properties, style, ktype = "fill") {
+  style = convertVectorStyle(style);
+
+  const c = getVectorLayerColorNew(properties, style, ktype);
+  return c;
 }
 
 export {
