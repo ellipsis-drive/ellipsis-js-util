@@ -1,6 +1,10 @@
 import EllipsisApi from "./EllipsisApi";
 import EllipsisVectorLayerBaseError from "./EllipsisVectorLayerError";
-import { getFeatureStyling, getVectorLayerColor } from "./VectorLayerUtil";
+import {
+  evaluateExpression,
+  getFeatureStyling,
+  getVectorLayerColor,
+} from "./VectorLayerUtil";
 
 class EllipsisVectorLayerBase {
   static defaultOptions = {
@@ -207,7 +211,6 @@ class EllipsisVectorLayerBase {
     this.options.debug("load");
     this.loadingState.isLoading = true;
     const cachedSomething = await this.requestTileGeoJsons();
-
     this.loadingState.isLoading = false;
     //Handle load interrupts
     if (this.loadingState.loadInterrupters.length) {
@@ -387,10 +390,6 @@ class EllipsisVectorLayerBase {
       zipTheResponse: true,
       pageSize: this.options.pageSize,
       style: this.options.style,
-      propertyFilter:
-        this.options.filter && this.options.filter > 0
-          ? this.options.filter
-          : null,
     };
     const st = this.getStyle();
 
@@ -412,10 +411,7 @@ class EllipsisVectorLayerBase {
             ? { featureId: res.nextPageStart }
             : null;
 
-          res.result.features = res.result.features.map((f) => {
-            f.properties.color = getVectorLayerColor(f.properties, st);
-            return f;
-          });
+          res = [res];
         } else {
           res = await EllipsisApi.get(
             `/path/${this.options.pathId}/vector/timestamp/${this.info.layerInfo.id}/featuresByTiles`,
@@ -435,7 +431,6 @@ class EllipsisVectorLayerBase {
     //Add newly loaded data to cache
     for (let j = 0; j < tiles.length; j++) {
       const tileId = this.getTileId(tiles[j].tileId);
-
       if (!this.loadingState.featuresInTileCache[tileId]) {
         this.loadingState.featuresInTileCache[tileId] = {
           size: 0,
@@ -443,6 +438,11 @@ class EllipsisVectorLayerBase {
           featureIds: [],
           nextPageStart: null,
         };
+      }
+      if (this.options.filter) {
+        result[j].result.features = result[j].result.features.filter((x) =>
+          evaluateExpression(this.options.filter, x.properties)
+        );
       }
 
       if (this.options.manipulateCoords) {
@@ -550,7 +550,9 @@ class EllipsisVectorLayerBase {
 
   compileStyle = (feature) => {
     const st = this.getStyle();
+
     let compiledStyle = getFeatureStyling(feature, st, feature.properties);
+
     feature.properties.compiledStyle = compiledStyle;
   };
 

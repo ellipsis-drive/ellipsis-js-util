@@ -52,16 +52,13 @@ const parseHex = (color, toRGB) => {
  * @returns {*}
  */
 const getFeatureStyling = (feature, style, properties) => {
-  getVectorLayerColor(properties, style, "radius");
-  getVectorLayerColor(properties, style, "width");
-  parseHex(feature.properties.color).color;
   const stylingProperties = {
     radius: getVectorLayerColor(properties, style, "radius"),
     weight: getVectorLayerColor(properties, style, "width"),
     opacity: 1,
-    fillColor: parseHex(feature.properties.color).color,
-    fillOpacity: style.parameters.alpha,
-    color: parseHex(feature.properties.color).color,
+    fillColor: getVectorLayerColor(properties, style, "fill"),
+    fillOpacity: style.parameters.alphaMultiplier,
+    color: getVectorLayerColor(properties, style, "fill"),
     popupProperty: style.parameters.popupProperty?.text,
   };
   return stylingProperties;
@@ -218,8 +215,8 @@ function getVectorLayerColorNew(properties, style, ktype) {
   }
 
   if (!color) {
-    if (ktype === "color") {
-      return "#000000";
+    if (ktype === "fill") {
+      return "#f57c00";
     } else if (ktype === "width") {
       return 5;
     } else {
@@ -229,7 +226,7 @@ function getVectorLayerColorNew(properties, style, ktype) {
   return color;
 }
 
-function evaluateExpression(expressionObject, properties) {
+export function evaluateExpression(expressionObject, properties) {
   let evaluationProperties = {};
   if (expressionObject.properties) {
     let propertyNames = expressionObject.properties;
@@ -255,9 +252,11 @@ function evaluateExpression(expressionObject, properties) {
 
   const expression = expressionObject.expression;
   let evaluation;
-
+  let testExpression = expression
+    .replaceAll("||", "or")
+    .replaceAll("&&", "and");
   try {
-    evaluation = math.evaluate(expression, evaluationProperties);
+    evaluation = math.evaluate(testExpression, evaluationProperties);
   } catch {
     evaluation = null;
   }
