@@ -55,7 +55,7 @@ const getFeatureStyling = (feature, style, properties) => {
   const stylingProperties = {
     radius: getVectorLayerColor(properties, style, "radius"),
     weight: getVectorLayerColor(properties, style, "width"),
-    opacity: 1,
+    opacity: style.parameters.alphaMultiplier,
     fillColor: getVectorLayerColor(properties, style, "fill"),
     fillOpacity: style.parameters.alphaMultiplier,
     color: getVectorLayerColor(properties, style, "fill"),
@@ -146,6 +146,7 @@ function getVectorLayerColorNew(properties, style, ktype) {
   let color;
 
   const params = style.parameters[ktype];
+
   switch (params.type) {
     case "constant": {
       color = params.target[params.target.type];
@@ -223,6 +224,9 @@ function getVectorLayerColorNew(properties, style, ktype) {
       return 10;
     }
   }
+  if (ktype === "fill") {
+    color = color.slice(0, 7);
+  }
   return color;
 }
 
@@ -252,9 +256,15 @@ export function evaluateExpression(expressionObject, properties) {
 
   const expression = expressionObject.expression;
   let evaluation;
+
   let testExpression = expression
+    .replaceAll(" ", "")
+    .replaceAll("!=", "NE")
     .replaceAll("||", "or")
-    .replaceAll("&&", "and");
+    .replaceAll("&&", "and")
+    .replaceAll("!", "not")
+    .replaceAll("NE", "!=");
+
   try {
     evaluation = math.evaluate(testExpression, evaluationProperties);
   } catch {
@@ -426,7 +436,7 @@ function convertVectorStyle(style) {
     };
   } else if (style.method === "random") {
     style.parameters.fill = {
-      type: "randomSeed",
+      type: "seededRandom",
       expressionObject: {
         properties: [style.parameters.property],
         values: [],
